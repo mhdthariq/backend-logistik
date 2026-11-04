@@ -1,5 +1,55 @@
 # Backend test strategy
 
+## Continuation — shipment ready/cancel and public tracking (2026-11-04)
+
+Four more method/path pairs are implemented (74/185 total): POST ready, POST
+cancel, and GET/POST public tracking. GET preserves the legacy 405 response;
+POST requires a corporate header and full sender/recipient phone verification.
+
+Database regressions cover ready prerequisites, every lifecycle status accepted or
+rejected by these two actions, permission and warehouse/Marketing scope, active
+transport/delivery/invoice cancellation blocks, payment and pickup warnings,
+B2C company-share escrow, withdrawal reservations, B2B exemption, repeated actions,
+ledger conservation, competing debits, and rollback on injected tracking failure.
+Two independent tenant databases verify public lookup isolation and cancellation
+token isolation. Public fixtures cover sender snapshot precedence, customer-phone
+fallback, equivalent Indonesian phone formats, master/resi/child code lookup,
+cancelled/unknown shipments, masked contacts, omitted scan/financial/credential
+fields, and private no-store responses. Limiter tests cover concurrency, tenant
+keys, expiry and the 10,000-key bound.
+
+Intentional changes relative to the legacy mutation routes:
+
+- Status, tracking event, escrow debit/refund and wallet ledger updates commit in
+  one serializable transaction. Legacy ready could leave a hold before updating
+  status, and cancel committed status before attempting its refund. A failure in
+  Go rolls back the complete action; concurrent serialization failures return 409.
+- Existing escrow business references are reused before checking available funds,
+  allowing recovery from a legacy partial ready operation without another debit.
+- Audit writes remain best-effort after commit, consistent with the existing Go
+  adapter and legacy audit service; cancellation warnings remain in the audit log.
+
+The tracking limiter is bounded and protected by a mutex per application instance,
+with the legacy limit of ten attempts per corporate ID/code in fifteen minutes.
+It is not shared between replicas or the legacy and Go processes. Coordinated
+limits and mixed Node/Go wallet contention remain staging acceptance work.
+Public totals preserve legacy dimension-based volume because the legacy public
+package projection omits the direct volumeM3 override.
+
+Selected legacy suites (37 tests):
+
+```powershell
+bun run test tests/app/api/v1/shipments/cancellation.test.ts tests/app/api/v1/public/tracking.test.ts tests/shared/resi-privacy.test.ts
+```
+
+Validation record: the final WSL disposable-PostgreSQL suite, race detector,
+inventory registration check, vet, Linux build and golangci-lint passed (zero
+lint issues). All 37 selected legacy tests passed. Graphify was refreshed.
+
+Shipment arrival/scans/undo, notification orchestration, pickup/delivery actions,
+transport and finance handlers remain planned. No frontend routing or live schema
+changes are part of this continuation.
+
 ## Continuation — shipment editing, pricing and documents (2026-11-04)
 
 Seventeen more legacy method/path pairs are implemented (70/185 total). The WSL

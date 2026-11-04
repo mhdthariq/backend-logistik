@@ -19,8 +19,9 @@ import (
 )
 
 type business struct {
-	tenants *tenant.Registry
-	logger  *slog.Logger
+	tenants          *tenant.Registry
+	logger           *slog.Logger
+	trackingAttempts trackingLimiter
 }
 type request struct {
 	ctx     context.Context
@@ -41,10 +42,11 @@ func NewWithTenants(logger *slog.Logger, tenants *tenant.Registry) *fiber.App {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	b := &business{tenants, logger}
+	b := &business{tenants: tenants, logger: logger}
 	b.registerIdentity(app)
 	b.registerMaster(app)
 	b.registerShipments(app)
+	b.registerPublicTracking(app)
 	return app
 }
 

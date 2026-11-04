@@ -12,6 +12,8 @@ import (
 )
 
 func (b *business) registerShipments(app *fiber.App) {
+	app.Post("/api/v1/shipments/:id/ready", b.handle("shipment.view", true, true, b.readyShipment))
+	app.Post("/api/v1/shipments/:id/cancel", b.handle("shipment.cancel", true, true, b.cancelShipment))
 	app.Get("/api/v1/shipments", b.handle("shipment.view", true, false, b.shipments))
 	app.Post("/api/v1/shipments", b.handle("shipment.create", true, true, b.createShipment))
 	app.Get("/api/v1/shipments/:id", b.handle("shipment.view", true, false, b.shipment))
