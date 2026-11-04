@@ -1,5 +1,49 @@
 # Backend test strategy
 
+## Continuation — shipment arrival scans, reception and undo (2026-11-04)
+
+Five additional method/path pairs are implemented (79/185 total): GET/POST
+arrival-scans and POST arrival-scan-all, arrive and undo-arrival. The receipt
+handler supports courier drop-off, walk-in and destination transport reception.
+B2B master scans satisfy the entire consignment; B2C still requires each package.
+Progress preserves earliest successful scan metadata, explicit null fields and
+context isolation, including legacy ARRIVED_AT_GUDANG rows without destReceivedAt.
+Unexpected and duplicate scans retain their legacy successful response envelopes.
+QR URLs enforce corporate identity; bare scan codes remain supported.
+
+Database regressions cover permissions, warehouse and Marketing scope, inactive
+warehouses, incomplete/empty consignments, origin/destination transitions, receipt
+timestamps, pickup completion/restoration, legacy origin history fallback, dedicated
+undo permission and reason validation, cancelled vs active downstream work and
+expenses, scan-context cleanup, repeated actions, concurrent duplicate scans, and
+rollback on injected scan, tracking and transactional undo-audit failures. Two
+independent databases with identical shipment/package identifiers verify tenant
+scan isolation and absence of cross-tenant receipt/reversal writes.
+
+Intentional concurrency changes relative to legacy scan/receipt handlers:
+
+- Arrival reads, single/bulk scans and receipt lock the parent shipment until the
+  transaction completes. Concurrent Go scans classify one success and subsequent
+  duplicates; bulk scan failures roll back the entire batch.
+- Undo runs serializably and retains its mandatory audit inside the transaction.
+  Receipt and scan audits remain best-effort after commit, as in the legacy service.
+  Concurrent serialization failures return 409 through the existing adapter.
+- Reason and QR length limits count UTF-16 units, matching JavaScript.
+
+Selected legacy validation:
+
+```powershell
+bun run test tests/app/api/v1/shipments/undo-arrival.test.ts tests/shared/resi-privacy.test.ts
+```
+
+Validation record: the final WSL race suite, disposable-PostgreSQL integration
+tests, inventory registration check, vet, Linux build and golangci-lint passed
+(zero lint issues). Both selected legacy suites passed (21 tests). Graphify was
+refreshed. No live database or frontend routing is changed.
+Mixed Node/Go scan/receipt contention, full legacy response fixtures, load checks,
+frontend/E2E routing and staging rollout remain acceptance work. Pickup/delivery,
+transport, notifications and finance handlers remain planned.
+
 ## Continuation — shipment ready/cancel and public tracking (2026-11-04)
 
 Four more method/path pairs are implemented (74/185 total): POST ready, POST

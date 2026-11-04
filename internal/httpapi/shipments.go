@@ -12,6 +12,11 @@ import (
 )
 
 func (b *business) registerShipments(app *fiber.App) {
+	app.Get("/api/v1/shipments/:id/arrival-scans", b.handle("shipment.view", true, true, b.arrivalScans))
+	app.Post("/api/v1/shipments/:id/arrival-scans", b.handle("shipment.confirm_arrival", true, true, b.recordArrivalScan))
+	app.Post("/api/v1/shipments/:id/arrival-scan-all", b.handle("shipment.confirm_arrival", true, true, b.scanAllArrival))
+	app.Post("/api/v1/shipments/:id/arrive", b.handle("shipment.confirm_arrival", true, true, b.arriveShipment))
+	app.Post("/api/v1/shipments/:id/undo-arrival", b.handle("shipment.undo_arrival", true, true, b.undoArrival))
 	app.Post("/api/v1/shipments/:id/ready", b.handle("shipment.view", true, true, b.readyShipment))
 	app.Post("/api/v1/shipments/:id/cancel", b.handle("shipment.cancel", true, true, b.cancelShipment))
 	app.Get("/api/v1/shipments", b.handle("shipment.view", true, false, b.shipments))
