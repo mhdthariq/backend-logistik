@@ -20,7 +20,7 @@ func New(logger *slog.Logger) *fiber.App {
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
-		BodyLimit:    8 * 1024 * 1024,
+		BodyLimit:    16 * 1024 * 1024,
 	})
 	app.Use(recover.New())
 	app.Get("/api", func(c fiber.Ctx) error {

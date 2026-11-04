@@ -3,16 +3,18 @@
 ## Scope and current status
 
 Requested target: `backend/`, using Go + Fiber, migrated in reviewable phases with
-tests. The continuation implements identity/access, master-data routes and mobile
-capability discovery. No production cutover, frontend move, live database mutation,
+tests. The continuations implement identity/access, master-data routes, mobile
+capability discovery and the shipment editing/pricing/document slice. No production cutover, frontend move, live database mutation,
 schema reset or demo seeding is included. An additive Prisma migration reconciles
 two missing schema items; only disposable tests apply it here.
 
 Source of truth is the code under `../../kirimku/`, not historical API examples.
-The refreshed audit finds 185 exported handlers: 53 implemented and 132 planned.
+The refreshed audit finds 185 exported handlers: 70 implemented and 115 planned.
 Phase 2 has 18 route implementations, Phase 3 has 33, and Phase 8 additionally
-has mobile/config. Their remaining acceptance work is documented in testing.md;
-the transaction-heavy shipment, transport and finance phases are still planned.
+has mobile/config. Phase 4 has 17 implementations: shipment CRUD, package CRUD and
+batch changes, pricing, documents, internal tracking and print logging. Their remaining
+acceptance work is documented in testing.md. Shipment lifecycle/public tracking,
+transport and finance handlers remain planned.
 The exact methods, paths, source
 files, assigned phases, and status are in [route-inventory.csv](route-inventory.csv).
 Regenerate after source changes with:

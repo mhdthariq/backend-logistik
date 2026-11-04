@@ -1,5 +1,60 @@
 # Backend test strategy
 
+## Continuation — shipment editing, pricing and documents (2026-11-04)
+
+Seventeen more legacy method/path pairs are implemented (70/185 total). The WSL
+runner below exercises shipment create/list/detail/update/delete, package expansion
+and batch changes, price snapshots, documents, internal tracking and print logging.
+It applies the actual Prisma migration history to disposable databases.
+
+Regression coverage includes warehouse scope through origin/in-transit/destination
+states, Marketing ownership, sender defaults, direct-shipment permission denial,
+payment-proof and actor-credential redaction, invoice filters, deletion protection
+for financial/operational history, concurrent master/package code allocation,
+strict batch validation, batch rollback on an injected second-row failure, pricing
+rollback on a tracking-event failure, verified-payment repricing locks, Marketing
+discount limits and wallet withdrawal reservations, B2B wallet exemption, tariff
+fallback excluding other customers, and document type/size/ownership checks.
+
+The pure pricing suite ports legacy actual/volumetric kg, B2B simple kg, B2C simple
+kg, koli, cubic, minimums, direct volume and rounding cases, including the floating
+point value just below 0.5 where `floor(x + 0.5)` diverges from JavaScript.
+
+Intentional changes in this slice:
+
+- B2B /kg billing follows the shipment customer's type, including generic tariffs
+  with no customerType: entered kg (subject to the configured minimum) times rate,
+  with no volumetric comparison or weight rounding. Preview and price snapshots
+  share this rule; B2C volumetric billing retains its existing behavior.
+- Tracking actor objects omit password hashes.
+- Shipment/package mutations lock the parent row; batch edits, deletion and pricing
+  use serializable transactions. Price snapshots and tracking events commit together.
+- Concurrent master creation uses an advisory lock. Daily package allocation shares
+  the existing CodeSequence key with Node and commits with package inserts.
+- Package expansion is bounded at 10,000 per create request; invalid/nonobject
+  inline details return validation errors. Legacy had no finite upper expansion cap.
+- The HTTP JSON limit is 16 MiB so the legacy 12,000,000-character document data URL
+  limit is reachable after base64 expansion. Document validation keeps its legacy
+  MIME-prefix/length checks; it does not validate decoded file signatures.
+- List totals and latest tracking events load in batches, avoiding a query per row.
+
+Selected legacy validation command (171 tests):
+
+```powershell
+bun run test tests/domain/pricing.test.ts tests/application/pricing/pricing-service.test.ts 'tests/app/api/v1/shipments/[id]/details/batch/route.test.ts' tests/app/api/v1/shipments/delete-and-invoice.test.ts
+```
+
+Validation record: the final WSL race suite, disposable PostgreSQL integration
+tests, inventory check, vet, Linux build and golangci-lint passed (zero lint issues).
+The pricing engine has 100% statement coverage (36/36 statements). All 171 selected
+legacy tests passed. Graphify was refreshed. No live database was used.
+
+Remaining acceptance work includes complete legacy response fixtures, mixed Node/Go
+write contention, two-tenant shipment scenarios, production-sized workload checks,
+frontend/E2E routing and staging rollout. Ready/cancel/arrival, public tracking,
+notifications and shipment finance actions remain on the planned inventory rows.
+This slice does not change frontend routing or apply live database changes.
+
 ## Continuation — identity and master-data APIs (2026-11-04)
 
 Run in WSL from `/mnt/d/Project/NovaLogistik/backend`:

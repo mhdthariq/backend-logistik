@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"novalogistik/backend/internal/persistence"
 	"novalogistik/backend/internal/tenant"
 )
@@ -42,6 +44,7 @@ func NewWithTenants(logger *slog.Logger, tenants *tenant.Registry) *fiber.App {
 	b := &business{tenants, logger}
 	b.registerIdentity(app)
 	b.registerMaster(app)
+	b.registerShipments(app)
 	return app
 }
 
@@ -85,6 +88,10 @@ func (b *business) handle(permission string, authenticated, transaction bool, fn
 			data, err = fn(r)
 		}
 		if err != nil {
+			var pg *pgconn.PgError
+			if errors.As(err, &pg) && (pg.Code == "40001" || pg.Code == "40P01") {
+				return problem(409, "Data berubah bersamaan. Silakan coba lagi.")
+			}
 			return err
 		}
 		for _, audit := range r.audits {
