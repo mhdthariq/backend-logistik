@@ -1,5 +1,49 @@
 # Backend test strategy
 
+## Continuation — fleet capacity overview and bulk koli configuration (2026-11-05)
+
+GET /api/v1/fleet-capacity and POST /api/v1/fleet-capacity/bulk-configure-koli are
+implemented (94/185 total). The overview requires vehicle.view; bulk configuration
+requires vehicle.update and owner status (including inherited Owner-role status).
+Capacity remains informational and never blocks shipment or transport operations.
+Capacity trend and transport routes remain planned. No schema, live database or
+frontend routing changes are included.
+
+The pure internal/capacity package ports independent weight/volume/koli dimensions,
+legacy epsilon rounding, utilization, headroom, overage, unconfigured null fields,
+and overall precedence (overlimit, warning, unconfigured/partial, OK). A positive
+maximum that rounds to zero keeps its legacy status/null utilization behavior.
+
+The overview includes all vehicles and combines PLANNED/DEPARTED transports only,
+including empty active transports. It uses actual package weight, not billing
+weight. SQL detail aggregates round per shipment before summing, preserve repeated
+masters across active transports, and use dimensions only because the current legacy
+detailAggregates SQL omits direct volumeM3. Idle load/capacity fields remain null;
+summary counts and unconfiguredVehicles (maxKoli=null only) match legacy behavior.
+Threshold reads use the existing Go tenant-local settings helper, without the legacy
+process-global cache. No photos or private owner/account objects are returned.
+
+Bulk configuration preserves weight-band suggestions, positive override rounding,
+the suggested flag's null/absent semantics, configured-row exclusion, inactive vehicle
+inclusion and one capacity-change audit per updated vehicle. Intentional changes:
+rows lock in ID order and the batch commits atomically, so update/validation failures
+roll back all earlier updates and concurrent Go actions cannot configure the same
+row twice. Positive overrides beyond a PostgreSQL 32-bit integer return a field-level
+422 instead of a database error. Audits remain best-effort after commit.
+
+Tests cover dimension boundaries, custom thresholds, precision and overall status;
+HTTP permissions/ownership, empty fleet, active/idle/terminal transports, repeated
+masters, volume/weight parity, owner names, summary counts, threshold updates,
+suggestion boundaries, override rounding/fallback, idempotency, audit payloads,
+injected mid-batch rollback, concurrent bulk requests, integer overflow and two
+independent tenants sharing vehicle identifiers. The selected legacy capacity
+suite passed (29 tests).
+
+Validation: the full WSL race and disposable-PostgreSQL suite, inventory check,
+vet, Linux build and golangci-lint passed (zero lint issues). Graphify was refreshed.
+Full legacy response fixtures, mixed Node/Go contention, browser/proxy checks and
+staging cutover remain gates.
+
 ## Continuation — gudang workspace (2026-11-05)
 
 GET /api/v1/gudang is implemented (92/185 total), matching the current kirimku
