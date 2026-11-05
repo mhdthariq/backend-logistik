@@ -200,6 +200,17 @@ func TestFleetCapacityTenantIsolationPostgres(t *testing.T) {
 	tokenA, tokenB := loginAs(t, app, "owner", "A"), loginAs(t, app, "owner", "B")
 	apiCall(t, app, "GET", "/api/v1/fleet-capacity", "", tokenA, "B", 401)
 	apiCall(t, app, "POST", "/api/v1/fleet-capacity/bulk-configure-koli", `{}`, tokenA, "A", 200)
+	shipmentSQL(t, a, `UPDATE "AuditLog" SET "createdAt"=(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')-INTERVAL '1 day' WHERE "entityType"='vehicle'`)
+	apiCall(t, app, "GET", "/api/v1/capacity/trend", "", tokenA, "B", 401)
+	for _, tc := range []struct {
+		token, corp string
+		total       float64
+	}{{tokenA, "A", 1}, {tokenB, "B", 0}} {
+		trend := apiCall(t, app, "GET", "/api/v1/capacity/trend", "", tc.token, tc.corp, 200)["data"].(map[string]any)
+		if trend["total"] != tc.total {
+			t.Fatal("capacity audit tenant isolation", trend)
+		}
+	}
 	for _, tc := range []struct{ token, corp, status string }{{tokenA, "A", "WARNING"}, {tokenB, "B", "PARTIALLY_CONFIGURED"}} {
 		result := apiCall(t, app, "GET", "/api/v1/fleet-capacity", "", tc.token, tc.corp, 200)["data"].(map[string]any)
 		row := gudangRow(t, result["vehicles"], 10)

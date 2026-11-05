@@ -1,6 +1,6 @@
 # NovaLogistik Go backend
 
-Incremental migration from `../kirimku` to Go + Fiber v3. **94 of 185 legacy HTTP
+Incremental migration from `../kirimku` to Go + Fiber v3. **95 of 185 legacy HTTP
 handlers are implemented**: the greeting, identity/access management, master-data
 routes, mobile capability discovery, shipment CRUD, package CRUD/batches,
 pricing, documents, internal tracking, print logging, pickup submission,
@@ -8,8 +8,8 @@ cancellation, arrival scans/reception/undo, phone-verified public tracking, and
 pickup list/detail, assignment, editing, cancellation and package scans; delivery
 list/detail, assignment, editing, deletion and package scans; and the gudang
 workspace with arrival queues, walk-ins and held inventory; fleet capacity
-overview and owner-only bulk koli configuration.
-The remaining 91 handlers are listed in
+overview, capacity change trends and owner-only bulk koli configuration.
+The remaining 90 handlers are listed in
 [the inventory](docs/route-inventory.csv). Frontend routing still points to Next.js;
 implementation status does not mean production traffic has switched.
 
@@ -45,7 +45,7 @@ Implemented `/api/v1` modules: `auth/login`, `auth/logout`, `auth/me`, `profile`
 internal tracking, print logs, ready/cancel actions, arrival scan progress/single/bulk
 scans, origin/destination receipt and undo, phone-verified public tracking, pickup
 CRUD/cancellation/scans, delivery CRUD/scans, the gudang workspace, and fleet
-capacity overview/bulk koli configuration.
+capacity overview/bulk koli configuration and capacity change trends.
 The inventory records exact method/path pairs.
 
 Prisma remains schema owner. Apply its migration chain through the normal deployment

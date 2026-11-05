@@ -1,5 +1,26 @@
 # Backend test strategy
 
+## Continuation — capacity change trends (2026-11-05)
+
+GET /api/v1/capacity/trend is implemented (95/185 total). It requires vehicle.view
+and reads only vehicle audit logs from the request's tenant. It preserves the
+default 14-day window, 7–90-day clamp, fractional-day behavior, Indonesian labels,
+zero-filled buckets, and JavaScript truthiness for capacityConfigChanged.
+Malformed/null audit JSON is ignored. The legacy server-local midnight window and
+UTC date keys are retained; Node and Go must use the same TZ during rollout.
+In WIB, today's UTC audit dates can fall beyond the last bucket, matching legacy.
+
+Tests cover range bounds/defaults, fractional ranges, month boundaries, WIB date
+keys, empty history, malformed and false-valued audits, inclusive start/excluded
+older logs, unrelated entities, future logs outside buckets, authentication,
+permissions, database failure and two-tenant isolation after bulk configuration.
+No dedicated legacy trend test suite exists. Browser/proxy checks, complete legacy
+response fixtures and staging rollout remain acceptance gates.
+
+Validation: full WSL race/disposable-PostgreSQL suite, inventory registration,
+vet, Linux build and golangci-lint passed (zero lint issues). Date-window fixtures
+were checked against Node in UTC and Asia/Jakarta. Graphify was refreshed.
+
 ## Continuation — fleet capacity overview and bulk koli configuration (2026-11-05)
 
 GET /api/v1/fleet-capacity and POST /api/v1/fleet-capacity/bulk-configure-koli are

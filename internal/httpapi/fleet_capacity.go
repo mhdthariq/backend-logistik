@@ -9,6 +9,7 @@ import (
 )
 
 func (b *business) registerFleetCapacity(app *fiber.App) {
+	app.Get("/api/v1/capacity/trend", b.handle("vehicle.view", true, false, b.capacityTrend))
 	app.Get("/api/v1/fleet-capacity", b.handle("vehicle.view", true, false, b.fleetCapacity))
 	app.Post("/api/v1/fleet-capacity/bulk-configure-koli", b.handle("vehicle.update", true, true, b.bulkConfigureKoli))
 }
