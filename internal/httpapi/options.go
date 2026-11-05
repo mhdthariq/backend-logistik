@@ -10,7 +10,7 @@ func (b *business) options(r *request) (any, error) {
 	for _, query := range []struct{ key, sql string }{
 		{"employees", `SELECT to_jsonb(t) FROM (SELECT id,name,position,"warehouseId" FROM "Employee" WHERE "isActive" ORDER BY name) t`},
 		{"vehicles", `SELECT to_jsonb(t) FROM (SELECT id,"vehicleNumber",name,"maxWeightKg","maxVolumeM3","maxKoli","lengthM","widthM","heightM" FROM "Vehicle" WHERE status='ACTIVE' ORDER BY "vehicleNumber") t`},
-		{"routes", `SELECT to_jsonb(t) FROM (SELECT id,name,origin,destination FROM "Route" WHERE "isActive" ORDER BY name) t`},
+		{"routes", `SELECT jsonb_build_object('id',r.id,'name',r.name,'origin',r.origin,'destination',r.destination,'checkpoints',COALESCE((SELECT jsonb_agg(jsonb_build_object('name',c.name,'sequence',c.sequence,'latitude',c.latitude,'longitude',c.longitude,'radiusMeters',c."radiusMeters") ORDER BY c.sequence) FROM "Checkpoint" c WHERE c."routeId"=r.id AND c."isActive"),'[]'::jsonb)) FROM "Route" r WHERE r."isActive" ORDER BY r.name,r.id`},
 		{"warehouses", `SELECT to_jsonb(t) FROM (SELECT id,code,name,city,"customerSupportContact" FROM "Warehouse" WHERE "isActive" ORDER BY name) t`},
 		{"tariffs", `SELECT to_jsonb(t) FROM (SELECT id,name,origin,destination,"customerType","customerId","ratePerKg","ratePerKoli","ratePerCubic","minChargeableKg","minChargeableKoli","minChargeableM3","volumetricMultiplier","roundingMode","roundingUnitKg","pricingMethod","effectiveFrom","effectiveTo" FROM "Tariff" WHERE "isActive" AND "effectiveFrom"<=CURRENT_TIMESTAMP AND ("effectiveTo" IS NULL OR "effectiveTo">=CURRENT_TIMESTAMP) ORDER BY origin,destination,"customerType") t`},
 		{"permissions", `SELECT to_jsonb(t) FROM (SELECT id,slug,module,description FROM "Permission" ORDER BY module,slug) t`},

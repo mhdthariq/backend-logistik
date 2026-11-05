@@ -1,5 +1,49 @@
 # Backend test strategy
 
+## Continuation — delivery tasks and scans (2026-11-05)
+
+Six additional method/path pairs are implemented (91/185 total): GET/POST
+deliveries, GET/PUT/DELETE deliveries/[id], and POST deliveries/[id]/scans.
+DELETE removes the delivery and cascades its scans, matching the legacy route.
+Delivery completion and pickup confirmation with evidence-photo processing remain
+planned. No frontend routing, schema or live application database is changed.
+
+Source was rechecked against the current kirimku implementation. Go options now
+include active checkpoints ordered by sequence, with routes ordered by name/id,
+matching the recent route-reuse update. Return-transport creation remains planned.
+
+Delivery assignment retains origin/destination receipt gates, courier validation,
+first-gap DLV-2026- numbering, tracking and audit records. Lists retain warehouse
+scope, executor ownership, driver/kenek DIRECT filtering, first-checkpoint badges,
+customer fields and explicit per-package scan counts. As in Next.js, a B2B master
+scan satisfies detail progress but does not inflate explicit list scan counts.
+Scanning never completes a delivery or advances shipment custody.
+
+Intentional changes follow the previous Go pickup slice:
+
+- Assignment and scans enforce shipment scope. Executor detail reads require the
+  assigned employee. Accounts with no employee get an empty executor list and
+  cannot scan an unassigned task; owners/assignment supervisors keep their override.
+- Scan-user relations expose only id/name rather than full account records.
+  Proof photos and capture metadata retain proof_photo.view gating; planned task
+  coordinates and receiver text remain visible.
+- Mutations lock the shipment before the task, serializing Go scans with package
+  edits and arrival undo. Task creation and tracking commit atomically. Code
+  allocation uses a transaction advisory lock. Audits remain best-effort after commit.
+
+Disposable-PostgreSQL regressions cover CRUD, validation, permissions, warehouse
+separation, receipt gates, proof redaction, terminal tasks, courier ownership,
+empty-employee/unassigned-task denial, B2C and B2B scans, context/task isolation,
+concurrent duplicate scans, injected tracking/scan/delete failures, cascading scan
+deletion, DIRECT crew/checkpoint behavior, sparse numbering, route-option ordering,
+and two independent tenants sharing identical task/package identifiers.
+
+Validation: the full WSL race and disposable-PostgreSQL suite, route inventory
+check, vet, Linux build and golangci-lint passed (zero lint issues). Selected
+legacy proof-visibility (shared/API) and resi-privacy suites passed (52 tests).
+Graphify was refreshed. Full legacy response fixtures, mixed Node/Go contention,
+browser/proxy checks and staging cutover remain acceptance work.
+
 ## Continuation — pickup tasks and scans (2026-11-05)
 
 Six additional method/path pairs are implemented (85/185 total): GET/POST

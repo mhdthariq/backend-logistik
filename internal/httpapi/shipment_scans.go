@@ -58,7 +58,7 @@ func (r *request) arrivalProgress(s map[string]any, context string) (scanProgres
 	return r.handoverProgress(s, context, nil)
 }
 
-func (r *request) handoverProgress(s map[string]any, context string, pickupID any) (scanProgress, error) {
+func (r *request) handoverProgress(s map[string]any, context string, taskID any) (scanProgress, error) {
 	p := scanProgress{Details: []map[string]any{}}
 	customer, err := r.one(`SELECT to_jsonb(c) FROM "Customer" c WHERE id=$1`, s["customerId"])
 	if err != nil {
@@ -66,8 +66,11 @@ func (r *request) handoverProgress(s map[string]any, context string, pickupID an
 	}
 	p.IsB2B = customer["type"] == "b2b"
 	predicate, args := `h."masterId"=$1 AND h.context=$2`, []any{s["id"], context}
-	if pickupID != nil {
-		predicate, args = `h."pickupId"=$1`, []any{pickupID}
+	if taskID != nil {
+		predicate, args = `h."pickupId"=$1`, []any{taskID}
+		if context == "delivery" {
+			predicate = `h."deliveryId"=$1`
+		}
 	}
 	scans, err := r.many(`SELECT to_jsonb(h)||jsonb_build_object('by',u.name) FROM "HandoverScan" h LEFT JOIN "User" u ON u.id=h."scannedById" WHERE `+predicate+` AND h.result IN ('ok','duplicate') ORDER BY h."scannedAt",h.id`, args...)
 	if err != nil {
