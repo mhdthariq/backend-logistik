@@ -6,21 +6,22 @@ Requested target: `backend/`, using Go + Fiber, migrated in reviewable phases wi
 tests. The continuations implement identity/access, master-data routes, mobile
 capability discovery, shipment editing/pricing/documents, ready/cancel actions,
 arrival scans/reception/undo, phone-verified public tracking and pickup/delivery
-task management/scans. No production cutover,
+task management/scans, plus the gudang workspace. No production cutover,
 frontend move, live database mutation,
 schema reset or demo seeding is included. An additive Prisma migration reconciles
 two missing schema items; only disposable tests apply it here.
 
 Source of truth is the code under `../../kirimku/`, not historical API examples.
-The refreshed audit finds 185 exported handlers: 91 implemented and 94 planned.
+The refreshed audit finds 185 exported handlers: 92 implemented and 93 planned.
 Phase 2 has 18 route implementations, Phase 3 has 33, and Phase 8 additionally
 has mobile/config. Phase 4 has 26 implementations: shipment CRUD, package CRUD and
 batch changes, pricing, documents, internal tracking, print logging, pickup submission,
 cancellation, arrival scan progress/single/bulk scans, origin/destination reception,
 undo-arrival and phone-verified public tracking. Their remaining
-acceptance work is documented in testing.md. Phase 5 has twelve implementations:
+acceptance work is documented in testing.md. Phase 5 has thirteen implementations:
 delivery list/detail, assignment, editing, deletion and scans, plus pickup
-list/detail, creation, reassignment/editing, cancellation and scans.
+list/detail, creation, reassignment/editing, cancellation and scans, and the gudang
+workspace (courier/transport arrivals, walk-ins and held inventory).
 Pickup confirmation and delivery completion with evidence-photo processing remain
 planned. Notification orchestration, transport and finance handlers remain planned.
 The exact methods, paths, source

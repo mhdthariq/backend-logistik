@@ -1,5 +1,45 @@
 # Backend test strategy
 
+## Continuation — gudang workspace (2026-11-05)
+
+GET /api/v1/gudang is implemented (92/185 total), matching the current kirimku
+warehouse workspace. It requires shipment.view and uses the existing tenant and
+warehouse scope helpers. The response retains scope, arrivals, transportArrivals,
+walkIns and warehouses, including empty arrays and explicit nullable fields.
+No frontend routing, schema or live database changes are included.
+
+The port preserves several details specific to this legacy endpoint:
+
+- Courier and walk-in queues use shipment scope (explicit IDs plus active city
+  matches). Transport queues and physical inventory prioritize arrivedWarehouseId,
+  then the relevant branch ID, then case-insensitive city matching. An inactive
+  warehouse is omitted from warehouse tabs/names, while an explicit matching ID
+  can still expose a transport queue row to its assigned staff.
+- Successful and duplicate detail scan records both count, without deduplication
+  or expansion from a B2B master scan. Pickup scans and the other arrival context
+  do not inflate the queue count. Unknown methods count as TYPED.
+- Verified payments alone reduce the discounted final price. Null prices retain
+  null remaining amounts; overpayments clamp remaining amounts to zero. dpOk=true
+  and unpaidCount=0 remain compatibility fields. This endpoint does not write
+  payments or ledger entries.
+- Totals use dimensions only because the legacy queries omit direct volumeM3.
+  Package weight remains unrounded until the warehouse sum is rounded to two
+  decimals. Recent pickup/transport associations and active courier names match
+  legacy selection; no photos, capture metadata or account relations are returned.
+
+Disposable-PostgreSQL regressions cover authentication/permissions, empty workspaces,
+all queue/held lifecycle statuses, company-name fallback, verified/pending payments,
+discounts, overpayments, totals/rounding, duplicate/context scan counts, latest
+pickup/transport selection, nullable associations, warehouse/city precedence,
+inactive warehouses, scoped and unbound staff, and independent tenant databases
+with identical shipment identifiers.
+
+Validation: the full WSL race and disposable-PostgreSQL suite, route inventory
+check, vet, Linux build and golangci-lint passed (zero lint issues). Graphify was
+refreshed. No dedicated legacy gudang endpoint test suite exists; the full legacy
+suite was not rerun. Full legacy response fixtures, browser/proxy checks and staging
+cutover remain acceptance work.
+
 ## Continuation — delivery tasks and scans (2026-11-05)
 
 Six additional method/path pairs are implemented (91/185 total): GET/POST
