@@ -1,5 +1,45 @@
 # Backend test strategy
 
+## Phase 6 — transport and return tasks (2026-11-05)
+
+All 33 phase 6 method/path pairs are implemented (134/185 overall). The inventory
+test now rejects any planned route in phases 1–6. Transport settlement is included
+because its route belongs to phase 6; wallet credit and settlement creation commit
+atomically. Remaining phase 7–8 routes and frontend routing are unchanged.
+
+Disposable PostgreSQL regressions cover planning validation, vehicle/crew conflicts,
+simultaneous planning, shipment loading/tracking rollback, executor and warehouse
+access, warehouse staff assignment, capacity projections, checkpoint radius and
+duplicate checks, automatic departure/arrival, DIRECT pickup/delivery creation,
+activity GPS/capture/photo validation and monotonic last location, multi-drop
+assignment/unloading/approval, completion and undo, return task approval/reversed
+route reuse/replanning/status synchronization, expense proof arrays/corrections/
+approval/cancellation/removal, durable reversal audit rollback, settlement rollback,
+duplicate settlements and multiple credits to the same owner wallet.
+
+Go takes transaction-scoped locks for mutable transports and serializes planning
+checks/code allocation. Linked shipment/task/tracking writes stay in that transaction.
+The settlement path also locks the owner wallet before reading its balance.
+These locks coordinate Go writers; mixed Node/Go contention remains a staging gate.
+Go enforces warehouse scope on planning, print and settlement actions as well as
+operational routes, and checks resource availability when creating a return leg.
+Image content must match its declared JPEG/PNG format; expense corrections reject
+null types/amounts rather than persisting an invalid type or zero amount after a
+fallback validation. The existing Go watermark
+renderer now adds the trusted vehicle plate/description and transport shipment count.
+Its font/rendering differences from Sharp remain documented below.
+
+The selected legacy transport/capacity/domain suites ran 231 tests: 230 passed;
+`completed-consumers.test.ts` fails its finance-summary case because its database
+mock omits `payment.groupBy`. No legacy source or tests were changed to mask it.
+Full response fixtures, browser/visual signoff, mixed-runtime/load testing and
+production cutover remain acceptance work. No live data or schema was changed.
+
+Validation: the full WSL race/disposable-PostgreSQL suite, inventory registration,
+vet, Linux build and golangci-lint passed (zero lint issues). A final focused race
+run of transport, evidence processing and handover completion tests also passed,
+followed by vet, build and lint after the photo storage-limit adjustment.
+
 ## Continuation — remaining phase 1–5 routes (2026-11-05)
 
 The nine remaining phase 4–5 method/path pairs are implemented, bringing the

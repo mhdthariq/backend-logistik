@@ -90,9 +90,18 @@ func parseHandoverEvidence(body map[string]any, now time.Time) (map[string]any, 
 	return map[string]any{"locationLabel": nullable(cleanEvidenceText(location)), "timeZone": zone, "capturedAt": captured, "mockLocation": body["mockLocation"], "captureLatitude": lat, "captureLongitude": lon, "captureAccuracy": body["locationAccuracy"]}, hasLocation, nil
 }
 
-type evidenceCaption struct{ Company, Label, Origin, Destination, Driver, RecordedBy string }
+type evidenceCaption struct {
+	Company, Label, Origin, Destination, Driver, RecordedBy string
+	VehiclePlate, VehicleDescription                        string
+	ShipmentCount                                           int
+	MaxPhotoBytes                                           int
+}
 
 func processEvidencePhoto(ctx context.Context, photo string, stamp bool, meta map[string]any, caption evidenceCaption) (string, error) {
+	limit := caption.MaxPhotoBytes
+	if limit <= 0 {
+		limit = 2_500_000
+	}
 	_, payload, ok := strings.Cut(photo, ",")
 	if !ok {
 		return "", fmt.Errorf("missing photo payload")
@@ -107,6 +116,9 @@ func processEvidencePhoto(ctx context.Context, photo string, stamp bool, meta ma
 	}
 	if config.Width <= 0 || config.Height <= 0 || int64(config.Width)*int64(config.Height) > 20_000_000 || format != "jpeg" && format != "png" {
 		return "", fmt.Errorf("unsupported photo dimensions or format")
+	}
+	if !strings.HasPrefix(photo, "data:image/"+format+";base64,") {
+		return "", fmt.Errorf("photo data does not match declared format")
 	}
 	source, _, err := image.Decode(bytes.NewReader(raw))
 	if err != nil {
@@ -142,7 +154,7 @@ func processEvidencePhoto(ctx context.Context, photo string, stamp bool, meta ma
 			return "", err
 		}
 		result := "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(buf.Bytes())
-		if len(result) <= 2_500_000 {
+		if len(result) <= limit {
 			return result, nil
 		}
 	}
@@ -154,7 +166,7 @@ func processEvidencePhoto(ctx context.Context, photo string, stamp bool, meta ma
 			return "", err
 		}
 		result := "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(buf.Bytes())
-		if len(result) <= 2_500_000 {
+		if len(result) <= limit {
 			return result, nil
 		}
 	}
@@ -327,7 +339,11 @@ func drawEvidenceWatermark(dst *image.RGBA, meta map[string]any, c evidenceCapti
 	text(410, cardY+37, 23, c.Origin+" →", true, 20, white)
 	text(410, cardY+68, 23, c.Destination, true, 18, white)
 	text(670, cardY+37, 22, "Bukti operasional", true, 22, white)
-	text(670, cardY+68, 20, "(1 shipment)", false, 20, white)
+	count := c.ShipmentCount
+	if count == 0 && c.VehiclePlate == "" {
+		count = 1
+	}
+	text(670, cardY+68, 20, fmt.Sprintf("(%d shipment)", count), false, 20, white)
 	text(58, cardY+121, 18, "Alamat Lokasi", false, 20, white)
 	address := textValue(meta["locationLabel"])
 	if address == "" {
@@ -352,7 +368,12 @@ func drawEvidenceWatermark(dst *image.RGBA, meta map[string]any, c evidenceCapti
 	text(58, cardY+207, 14, fmt.Sprintf("%.6f, %.6f", number(meta["captureLatitude"]), number(meta["captureLongitude"])), false, 45, white)
 	text(58, cardY+242, 18, "Kendaraan", false, 20, white)
 	rect(58, cardY+251, 300, 34, color.RGBA{255, 227, 45, 255})
-	text(68, cardY+277, 27, "Tidak tersedia", true, 18, color.RGBA{6, 61, 54, 255})
+	plate := c.VehiclePlate
+	if plate == "" {
+		plate = "Tidak tersedia"
+	}
+	text(68, cardY+277, 27, plate, true, 18, color.RGBA{6, 61, 54, 255})
+	text(58, cardY+309, 15, c.VehicleDescription, false, 36, white)
 	text(550, cardY+242, 18, "Supir", false, 20, white)
 	text(550, cardY+278, 26, c.Driver, true, 25, white)
 	text(550, cardY+309, 15, c.RecordedBy, false, 36, white)

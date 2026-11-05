@@ -49,6 +49,8 @@ func NewWithTenants(logger *slog.Logger, tenants *tenant.Registry) *fiber.App {
 	b.registerPickups(app)
 	b.registerDeliveries(app)
 	b.registerFleetCapacity(app)
+	b.registerTransports(app)
+	b.registerReturnTasks(app)
 	app.Get("/api/v1/gudang", b.handle("shipment.view", true, false, b.gudang))
 	b.registerPublicTracking(app)
 	return app
@@ -102,6 +104,9 @@ func (b *business) handle(permission string, authenticated, transaction bool, fn
 		}
 		for _, audit := range r.audits {
 			audit()
+		}
+		if envelope, ok := data.(Envelope); ok {
+			return c.JSON(envelope)
 		}
 		return c.JSON(Envelope{Data: data})
 	}

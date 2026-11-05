@@ -36,7 +36,7 @@ func TestInventoryMatchesRegisteredRoutes(t *testing.T) {
 	for _, row := range rows[1:] {
 		key := row[1] + " " + row[2]
 		registered := routes[key]
-		if row[0] >= "1" && row[0] <= "5" && !registered {
+		if row[0] >= "1" && row[0] <= "6" && !registered {
 			t.Errorf("phase %s has an unmigrated route: %s", row[0], key)
 		}
 		if (row[4] == "implemented") != registered {
@@ -46,7 +46,7 @@ func TestInventoryMatchesRegisteredRoutes(t *testing.T) {
 			implemented++
 		}
 	}
-	if implemented != 104 {
-		t.Fatalf("expected 104 implemented legacy handlers, got %d", implemented)
+	if implemented != 134 {
+		t.Fatalf("expected 134 implemented legacy handlers, got %d", implemented)
 	}
 }

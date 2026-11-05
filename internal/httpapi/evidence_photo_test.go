@@ -87,6 +87,15 @@ func TestEvidencePhotoProcessing(t *testing.T) {
 	if stamped.Bounds().Dx() != 800 || stamped.Bounds().Dy() != 496 || stamped.At(40, 30) == src.At(40, 30) {
 		t.Fatal(stamped.Bounds())
 	}
+	caption.MaxPhotoBytes = 10 * 1024 * 1024 / 8
+	limited, err := processEvidencePhoto(t.Context(), photo, true, meta, caption)
+	if err != nil || len(limited) > caption.MaxPhotoBytes {
+		t.Fatal(len(limited), err)
+	}
+	caption.MaxPhotoBytes = 1
+	if _, err := processEvidencePhoto(t.Context(), photo, true, meta, caption); err == nil {
+		t.Fatal("ignored photo storage limit")
+	}
 	for _, bad := range []string{"bad", "data:image/png;base64,AAAA", "data:image/png;base64,@@@@"} {
 		if _, err := processEvidencePhoto(t.Context(), bad, false, meta, caption); err == nil {
 			t.Fatal(bad)

@@ -1,6 +1,6 @@
 # NovaLogistik Go backend
 
-Incremental migration from `../kirimku` to Go + Fiber v3. **104 of 185 legacy HTTP
+Incremental migration from `../kirimku` to Go + Fiber v3. **134 of 185 legacy HTTP
 handlers are implemented**: the greeting, identity/access management, master-data
 routes, mobile capability discovery, shipment CRUD, package CRUD/batches,
 pricing, documents, internal tracking, print logging, pickup submission,
@@ -10,8 +10,10 @@ delivery list/detail, assignment, editing, deletion, package scans and completio
 shipment payment history/recording, operational expenses and marketing notifications;
 and the gudang
 workspace with arrival queues, walk-ins and held inventory; fleet capacity
-overview, capacity change trends and owner-only bulk koli configuration.
-The remaining 81 handlers are listed in
+overview, capacity change trends and owner-only bulk koli configuration;
+transport planning, execution, checkpoint/activity evidence, multi-drop approval,
+operational expenses/reversals, return tasks and atomic vehicle-owner settlement.
+The remaining 51 handlers are listed in
 [the inventory](docs/route-inventory.csv). Frontend routing still points to Next.js;
 implementation status does not mean production traffic has switched.
 
@@ -47,8 +49,9 @@ Implemented `/api/v1` modules: `auth/login`, `auth/logout`, `auth/me`, `profile`
 internal tracking, print logs, ready/cancel actions, arrival scan progress/single/bulk
 scans, origin/destination receipt and undo, phone-verified public tracking, pickup
 CRUD/cancellation/scans, delivery CRUD/scans, the gudang workspace, and fleet
-capacity overview/bulk koli configuration and capacity change trends. All phase
-1–5 inventory rows are implemented, including pickup confirmation and delivery
+capacity overview/bulk koli configuration and capacity change trends, transport
+CRUD/lifecycle/activities/check-ins/drops/expenses/settlement, and return tasks.
+All phase 1–6 inventory rows are implemented, including pickup confirmation and delivery
 completion with evidence photos, shipment payments/expenses and marketing notices.
 The inventory records exact method/path pairs.
 
