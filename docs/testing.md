@@ -1,5 +1,55 @@
 # Backend test strategy
 
+## Continuation — pickup tasks and scans (2026-11-05)
+
+Six additional method/path pairs are implemented (85/185 total): GET/POST
+pickups, GET/PUT/DELETE pickups/[id], and POST pickups/[id]/scans. The DELETE
+action cancels the task and preserves history. Pickup confirmation with image
+decoding, capture metadata and photo watermarking remains on the legacy handler;
+delivery, warehouse, transport, notification and finance routes remain planned.
+
+Pickup creation preserves ready-status, positive-price, B2B invoice and courier
+validation, the first unused PICK-2026- code, tracking and audit fields. List
+responses retain sender snapshot addresses, origin-branch history, per-package
+scan counts, driver/kenek DIRECT filtering and first-checkpoint check-in badges.
+Scans retain B2B master-resi completion, B2C package requirements, unexpected and
+duplicate responses, earliest successful metadata, task/context isolation and
+corporate QR checks. Scanning alone never advances pickup or shipment custody.
+Payment summaries share the shipment-detail implementation (verified payments,
+discounted price and deprecated dpOk=true), without recording a payment.
+
+Intentional changes relative to legacy pickup routes:
+
+- Creation and cancellation now check shipment scope. Executor detail access
+  and scans require a matching assigned employee; accounts with no employee
+  receive an empty executor list and cannot scan an unassigned task. Supervisors
+  with pickup.assign_kurir and owners retain their override. Warehouse scope
+  still applies; history lists stay associated with the origin branch.
+- PICKED_UP tasks reject edits as well as cancellation so a reassignment/status
+  edit cannot reverse physical custody. COMPLETED/CANCELLED edits remain blocked.
+- Scan-user relations expose id/name, excluding credentials and other account
+  fields. Proof photos and capture metadata retain proof_photo.view gating;
+  planned task coordinates remain visible without that permission.
+- All mutations lock the parent shipment before the pickup row, consistent with
+  Go receipt/cancellation. Concurrent scans classify one success and subsequent
+  duplicates. First-gap code generation uses a transaction advisory lock.
+- Task, shipment restoration and tracking writes commit atomically; failures
+  roll back the entire action. Audits remain best-effort after commit, matching
+  the legacy audit service. No database schema changes are needed.
+
+PostgreSQL regressions cover CRUD and validation envelopes, permissions, courier
+ownership, warehouse separation, no-employee denial, B2B invoice gating, proof
+redaction, DIRECT crew/checkpoint behavior, sparse code allocation, B2C and B2B
+scans, terminal states, concurrent duplicate scans, injected tracking/scan
+failures, and two independent tenants with identical task/package identifiers.
+Mixed Node/Go contention and full legacy response fixtures remain staging gates.
+
+Validation: the final full WSL race and disposable-PostgreSQL suite, inventory
+registration check, vet, Linux build and golangci-lint passed (zero lint issues).
+The selected legacy proof-visibility (shared/API) and resi-privacy suites passed
+(52 tests). Graphify was refreshed. Changes are local; no frontend routing or
+live database was modified.
+
 ## Continuation — shipment arrival scans, reception and undo (2026-11-04)
 
 Five additional method/path pairs are implemented (79/185 total): GET/POST

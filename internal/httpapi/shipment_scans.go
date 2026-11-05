@@ -55,13 +55,21 @@ type scanProgress struct {
 // arrivalProgress selects the earliest successful scan for each package and
 // master. A B2B master scan supplies receipt metadata for every detail.
 func (r *request) arrivalProgress(s map[string]any, context string) (scanProgress, error) {
+	return r.handoverProgress(s, context, nil)
+}
+
+func (r *request) handoverProgress(s map[string]any, context string, pickupID any) (scanProgress, error) {
 	p := scanProgress{Details: []map[string]any{}}
 	customer, err := r.one(`SELECT to_jsonb(c) FROM "Customer" c WHERE id=$1`, s["customerId"])
 	if err != nil {
 		return p, err
 	}
 	p.IsB2B = customer["type"] == "b2b"
-	scans, err := r.many(`SELECT to_jsonb(h)||jsonb_build_object('by',u.name) FROM "HandoverScan" h LEFT JOIN "User" u ON u.id=h."scannedById" WHERE h."masterId"=$1 AND h.context=$2 AND h.result IN ('ok','duplicate') ORDER BY h."scannedAt",h.id`, s["id"], context)
+	predicate, args := `h."masterId"=$1 AND h.context=$2`, []any{s["id"], context}
+	if pickupID != nil {
+		predicate, args = `h."pickupId"=$1`, []any{pickupID}
+	}
+	scans, err := r.many(`SELECT to_jsonb(h)||jsonb_build_object('by',u.name) FROM "HandoverScan" h LEFT JOIN "User" u ON u.id=h."scannedById" WHERE `+predicate+` AND h.result IN ('ok','duplicate') ORDER BY h."scannedAt",h.id`, args...)
 	if err != nil {
 		return p, err
 	}

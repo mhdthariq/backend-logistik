@@ -108,8 +108,17 @@ func (b *business) shipment(r *request) (any, error) {
 		return nil, err
 	}
 	shipmentWarehouseNames(s, warehouses)
+	summary, err := r.paymentSummary(s)
+	if err != nil {
+		return nil, err
+	}
+	s["paymentSummary"] = summary
+	return s, nil
+}
+
+func (r *request) paymentSummary(s map[string]any) (map[string]any, error) {
 	var paid float64
-	if err = r.db.QueryRow(r.ctx, `SELECT COALESCE(sum(amount),0) FROM "Payment" WHERE "masterId"=$1 AND status='VERIFIED'`, id).Scan(&paid); err != nil {
+	if err := r.db.QueryRow(r.ctx, `SELECT COALESCE(sum(amount),0) FROM "Payment" WHERE "masterId"=$1 AND status='VERIFIED'`, s["id"]).Scan(&paid); err != nil {
 		return nil, err
 	}
 	final := s["finalPriceAmount"]
@@ -129,8 +138,7 @@ func (b *business) shipment(r *request) (any, error) {
 			status = "UNPAID"
 		}
 	}
-	s["paymentSummary"] = map[string]any{"priceAmount": s["priceAmount"], "discountAmount": s["discountAmount"], "finalPriceAmount": final, "paidAmount": paid, "remainingAmount": remaining, "dpRequirement": 0, "dpOk": true, "status": status}
-	return s, nil
+	return map[string]any{"priceAmount": s["priceAmount"], "discountAmount": s["discountAmount"], "finalPriceAmount": final, "paidAmount": paid, "remainingAmount": remaining, "dpRequirement": 0, "dpOk": true, "status": status}, nil
 }
 
 // rupiahNumber matches the decimal/group separators used by id-ID toLocaleString.

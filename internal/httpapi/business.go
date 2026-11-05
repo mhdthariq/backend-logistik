@@ -46,6 +46,7 @@ func NewWithTenants(logger *slog.Logger, tenants *tenant.Registry) *fiber.App {
 	b.registerIdentity(app)
 	b.registerMaster(app)
 	b.registerShipments(app)
+	b.registerPickups(app)
 	b.registerPublicTracking(app)
 	return app
 }

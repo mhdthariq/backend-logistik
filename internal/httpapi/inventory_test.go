@@ -43,7 +43,7 @@ func TestInventoryMatchesRegisteredRoutes(t *testing.T) {
 			implemented++
 		}
 	}
-	if implemented != 79 {
-		t.Fatalf("expected 79 implemented legacy handlers, got %d", implemented)
+	if implemented != 85 {
+		t.Fatalf("expected 85 implemented legacy handlers, got %d", implemented)
 	}
 }

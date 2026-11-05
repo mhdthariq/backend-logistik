@@ -1,11 +1,12 @@
 # NovaLogistik Go backend
 
-Incremental migration from `../kirimku` to Go + Fiber v3. **79 of 185 legacy HTTP
+Incremental migration from `../kirimku` to Go + Fiber v3. **85 of 185 legacy HTTP
 handlers are implemented**: the greeting, identity/access management, master-data
 routes, mobile capability discovery, shipment CRUD, package CRUD/batches,
 pricing, documents, internal tracking, print logging, pickup submission,
-cancellation, arrival scans/reception/undo and phone-verified public tracking.
-The remaining 106 handlers are listed in
+cancellation, arrival scans/reception/undo, phone-verified public tracking, and
+pickup list/detail, assignment, editing, cancellation and package scans.
+The remaining 100 handlers are listed in
 [the inventory](docs/route-inventory.csv). Frontend routing still points to Next.js;
 implementation status does not mean production traffic has switched.
 
