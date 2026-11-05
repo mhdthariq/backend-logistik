@@ -36,6 +36,9 @@ func TestInventoryMatchesRegisteredRoutes(t *testing.T) {
 	for _, row := range rows[1:] {
 		key := row[1] + " " + row[2]
 		registered := routes[key]
+		if row[0] >= "1" && row[0] <= "5" && !registered {
+			t.Errorf("phase %s has an unmigrated route: %s", row[0], key)
+		}
 		if (row[4] == "implemented") != registered {
 			t.Errorf("inventory disagrees with registered Fiber route: %s (status %s)", key, row[4])
 		}
@@ -43,7 +46,7 @@ func TestInventoryMatchesRegisteredRoutes(t *testing.T) {
 			implemented++
 		}
 	}
-	if implemented != 95 {
-		t.Fatalf("expected 95 implemented legacy handlers, got %d", implemented)
+	if implemented != 104 {
+		t.Fatalf("expected 104 implemented legacy handlers, got %d", implemented)
 	}
 }

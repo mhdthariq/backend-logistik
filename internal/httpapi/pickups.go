@@ -11,6 +11,7 @@ import (
 )
 
 func (b *business) registerPickups(app *fiber.App) {
+	app.Post("/api/v1/pickups/:id/confirm", b.handle("pickup.confirm", true, true, b.confirmPickup))
 	app.Get("/api/v1/pickups", b.handle("pickup.view", true, false, b.pickups))
 	app.Post("/api/v1/pickups", b.handle("pickup.create", true, true, b.createPickup))
 	app.Get("/api/v1/pickups/:id", b.handle("pickup.view", true, false, b.pickup))

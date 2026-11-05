@@ -9,6 +9,7 @@ import (
 )
 
 func (b *business) registerDeliveries(app *fiber.App) {
+	app.Post("/api/v1/deliveries/:id/complete", b.handle("delivery.confirm", true, true, b.completeDelivery))
 	app.Get("/api/v1/deliveries", b.handle("delivery.view", true, false, b.deliveries))
 	app.Post("/api/v1/deliveries", b.handle("delivery.assign_kurir", true, true, b.createDelivery))
 	app.Get("/api/v1/deliveries/:id", b.handle("delivery.view", true, false, b.delivery))

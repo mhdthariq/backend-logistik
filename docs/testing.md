@@ -1,5 +1,63 @@
 # Backend test strategy
 
+## Continuation — remaining phase 1–5 routes (2026-11-05)
+
+The nine remaining phase 4–5 method/path pairs are implemented, bringing the
+inventory to 104/185. Phases 1–3 already had no planned rows. The inventory test
+now rejects any unmigrated phase 1–5 row. This completes route implementation,
+not staging acceptance or production cutover.
+
+- Shipment payment history and recording preserve verified-only remaining-balance
+  checks, discounted totals, recorded status, actor attribution, optional proof,
+  B2B invoice-only billing, and the scoped Admin Gudang B2C permission exception.
+  Payments remain RECORDED until the phase 7 verify/reject routes run on legacy.
+- Operational expense creation requires a received B2B non-Marketing shipment.
+  Reports retain the restricted legacy projection and approved/pending totals.
+  Pending deletion, approval, cancellation and approved/cancelled removal preserve
+  their independent permissions. Reversal/deletion reasons are audited in the
+  same transaction; audit failure rolls back the reversal or deletion.
+- Marketing notification records a tracking event and best-effort audit, with
+  verified-payment balance checks and the existing Indonesian messages.
+- Pickup confirmation and delivery completion require all packages scanned,
+  assigned courier/supervisor access and proof photos. B2B pickup retains its
+  invoice gate. Pickup stays PICKED_UP until warehouse reception; delivery moves
+  the shipment to DELIVERED. Legacy payment payloads are ignored. DIRECT tracking
+  uses the latest recorded checkpoint on the selected transport.
+
+Go mutations lock shipment before task/expense, including notification and payment
+recording. Pickup task, shipment and tracking now commit atomically. Shipment scope
+is enforced for pickup confirmation and marketing notifications, consistent with
+the existing Go task/warehouse routes. Expense code allocation uses the existing
+transaction advisory-lock pattern. Payment recording remains serializable;
+serialization failures use the existing Go retryable 409 envelope.
+
+Evidence processing uses golang.org/x/image with Go JPEG/PNG decoders: actual-image
+validation, 20-million-pixel limit, capture metadata/freshness/GPS validation,
+EXIF orientation, resize to 1600px, JPEG storage cap, tenant/company branding,
+Indonesian capture date/time/zone, GPS/accuracy, address, origin/destination,
+assigned courier/operator, mock-location warning and By NovaLogistik footer.
+Planned task coordinates are never treated as capture coordinates; without GPS,
+the validated original photo is retained. The optional address fallback honors
+NOMINATIM_URL and a 3-second context deadline with process-local throttling/cache.
+Go renders the same information/layout with bundled Go fonts and flat panels;
+glyphs, rounded corners, gradients and JPEG bytes are not pixel-identical to Sharp.
+Browser/visual signoff remains a staging gate. No Node or system font dependency.
+
+Regression tests exercise permissions, warehouse scope, forged actor/status fields,
+balances, B2B gates, expense lifecycle and durable reversal reasons, injected
+rollback, concurrent expense allocation/approval and delivery completion, scan
+requirements, proof validation/metadata/stamping, EXIF orientation and address
+fallback/cache. Two independent tenant databases exercise financial isolation.
+The selected seven legacy suites passed (143 tests). Full legacy response fixtures,
+mixed Node/Go contention, production-sized images/load, browser/proxy/E2E checks
+and staging cutover remain acceptance work. No live database/schema or frontend
+routing changes are included.
+
+Validation: full WSL race/disposable-PostgreSQL suite, inventory registration,
+vet, Linux build and golangci-lint passed (zero lint issues). The watermark was
+visually checked with synthetic data, and Graphify was refreshed. The seven
+selected legacy suites passed all 143 tests.
+
 ## Continuation — capacity change trends (2026-11-05)
 
 GET /api/v1/capacity/trend is implemented (95/185 total). It requires vehicle.view
