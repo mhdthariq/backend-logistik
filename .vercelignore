@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+.tools/
+bin/
+coverage.out
+coverage.html

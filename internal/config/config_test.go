@@ -79,3 +79,16 @@ func TestTenantConfiguration(t *testing.T) {
 		})
 	}
 }
+
+func TestVercelDefaultsToProduction(t *testing.T) {
+	t.Setenv("VERCEL", "1")
+	t.Setenv("NODE_ENV", "")
+	t.Setenv("PREVIEW_MODE", "false")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Tenant.Mode != "production" {
+		t.Fatal("Vercel must validate corporate licenses by default")
+	}
+}

@@ -1,4 +1,5 @@
 /bin/
+/.vercel/
 /coverage.out
 /coverage.html
 /.tools/

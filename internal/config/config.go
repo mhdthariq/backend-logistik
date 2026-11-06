@@ -45,6 +45,9 @@ func Load() (Config, error) {
 		cfg.ShutdownTimeout = timeout
 	}
 	mode := strings.ToLower(strings.TrimSpace(os.Getenv("NODE_ENV")))
+	if mode == "" && os.Getenv("VERCEL") == "1" {
+		mode = "production"
+	}
 	if mode != "production" {
 		mode = "development"
 	} else if os.Getenv("PREVIEW_MODE") == "true" {

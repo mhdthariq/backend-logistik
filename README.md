@@ -85,6 +85,58 @@ headers still select `DATABASE_URL`, matching legacy behavior. Licenses cache fo
 minute with legacy stale-on-upstream-error behavior. Pools are bounded and request-leased;
 in-use pools are never evicted and shutdown closes the registry after HTTP drains.
 
+## Deploy from GitHub to Vercel
+
+This repository uses the [Fiber Vercel recipe](https://docs.gofiber.io/recipes/vercel/):
+`api/index.go` adapts the existing application to `net/http`, and `vercel.json`
+routes requests to it. The app and tenant pools are reused for warm invocations.
+The explicit `public` output directory prevents project files from becoming static output.
+
+1. Commit and push this setup to `mhdthariq/backend-logistik`.
+2. In Vercel, choose **Add New > Project**, import that GitHub repository, and
+   leave **Root Directory** at the repository root (`.`). Choose **Other** as
+   the framework; the checked-in configuration supplies routing and output settings.
+   Leave build/install commands at their repository defaults.
+3. Add these **server-side Environment Variables** for Production and Preview,
+   copying the four license values from your local `.env`:
+
+   | Variable | Value |
+   | --- | --- |
+   | `NODE_ENV` | `production` |
+   | `PREVIEW_MODE` | `false` |
+   | `LICENSE_API_URL` | Your license-header endpoint |
+   | `LICENSE_API_KEY` | Your existing Key value |
+   | `LICENSE_API_TOKEN` | Your existing Token value |
+   | `LICENSE_APLIKASI` | Your registered application value |
+   | `NEXT_PUBLIC_COMPANY_NAME` | `NovaLogistik` (or your company name) |
+   | `TENANT_MAX_POOLS` | `4` initially |
+   | `TENANT_MAX_CONNECTIONS` | `2` initially |
+
+   Vercel does not import your ignored local `.env`. Do not prefix license secrets
+   with `NEXT_PUBLIC_`. `DATABASE_URL` is optional and selects the fallback tenant
+   for requests without `x-corp-id`; omit it if all business requests supply a
+   Corporate ID. Do not copy `NODE_ENV=development` to Vercel: that mode bypasses
+   license lookup. When `NODE_ENV` is absent, Vercel defaults to production mode.
+4. Deploy. Verify `https://YOUR-BACKEND.vercel.app/health/live` and `/api`.
+   Check license routing with a request containing `x-corp-id: RJL2507`, for example:
+
+   ```bash
+   curl -i https://YOUR-BACKEND.vercel.app/api/v1/auth/me -H 'x-corp-id: RJL2507'
+   ```
+
+   Without a bearer token, an active configured tenant returns 401. License errors
+   identify lookup/configuration failures; this request alone does not prove a
+   database connection. Complete a normal login to check database/authentication access.
+5. To connect the existing Next.js frontend, set its build-time `GO_API_ORIGIN`
+   to `https://YOUR-BACKEND.vercel.app` and redeploy it after the cutover gates pass.
+   Its existing same-origin proxy forwards corporate and authorization headers.
+
+Vercel must be able to reach the license service and each tenant's PostgreSQL host.
+Apply the existing Prisma migrations separately before serving business traffic.
+Pool limits apply **per function instance**, so size database connection limits for
+multiple instances. Vercel's request/response payload limits also apply to evidence
+photo uploads, even though Fiber accepts up to 16 MiB locally.
+
 ## Verify
 
 ```bash
