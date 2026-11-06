@@ -53,6 +53,11 @@ func NewWithTenants(logger *slog.Logger, tenants *tenant.Registry) *fiber.App {
 	b.registerReturnTasks(app)
 	b.registerPayments(app)
 	b.registerPartners(app)
+	b.registerWallet(app)
+	b.registerInvoices(app)
+	b.registerRepairs(app)
+	b.registerFinance(app)
+	b.registerPartnerViews(app)
 	app.Get("/api/v1/gudang", b.handle("shipment.view", true, false, b.gudang))
 	b.registerPublicTracking(app)
 	return app

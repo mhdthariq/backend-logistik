@@ -2,6 +2,18 @@ package persistence
 
 import "testing"
 
+func TestNormalizeFinancialDates(t *testing.T) {
+	for _, key := range []string{"issueDate", "dueDate", "repairDate"} {
+		t.Run(key, func(t *testing.T) {
+			row := map[string]any{key: "2026-11-06T00:00:00"}
+			normalizeDates(row)
+			if row[key] != "2026-11-06T00:00:00.000Z" {
+				t.Fatal(row)
+			}
+		})
+	}
+}
+
 func TestNormalizeDates(t *testing.T) {
 	row := map[string]any{"createdAt": "2026-01-02T03:04:05.123", "notes": "2026-01-02T03:04:05.123", "child": map[string]any{"expiresAt": "2026-01-02T10:04:05+07:00"}, "rows": []any{map[string]any{"updatedAt": "2026-01-02T03:04:05"}}, "effectiveTo": nil}
 	normalizeDates(row)

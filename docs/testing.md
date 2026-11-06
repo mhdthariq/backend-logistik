@@ -1,5 +1,52 @@
 # Backend test strategy
 
+## Phase 7 — completed finance migration (2026-11-06)
+
+All 47 phase 7 method/path pairs are implemented (181/185 overall). The inventory
+test rejects any unregistered phase 1–7 route. The remaining four planned handlers
+belong to phase 8. Earlier entries below describe intermediate migration states.
+
+Invoice CRUD, lines, print logging, sending, and settlement create/update/delete
+preserve B2B-only billing, arrived-transport eligibility, one invoice per shipment,
+bank snapshots, PPh annotation, and zero-total settlement behavior. Settlement
+mutations use serializable transactions for payment/status/commission/ledger
+changes. Full payment releases a pending commission; reducing payment reverses it
+only when the wallet can cover the reversal and active withdrawal reservations.
+Draft edits recalculate pending commission values and attribution while retaining
+the recorded rates for the same partner. Unlike the legacy edit paths, invalid
+negative line amounts/totals and mixed marketing attribution are rejected.
+
+Wallet writes lock the wallet row and append immutable ledger entries in the
+same transaction as balance and workflow changes. Withdrawal creation locks the
+wallet before checking reservations. Top-up verification and withdrawal completion
+use stable business references and locked status transitions. Repairs record
+ownership at creation, debit/refund only partner-owned vehicles, and retain
+transactional action logs after deletion. Company repairs never touch wallets.
+
+Company reports preserve operational-expense filtering/pagination and unfiltered
+totals, customer receipts independent of wallets, partial invoice receipts,
+partner workflow summaries, and monthly ledger groups. Invoice payment monthly
+buckets retain the legacy behavior of grouping only the eight recent settlements.
+Partner self-service views scope wallets, commissions, vehicles, transports,
+repairs and their logs to the authenticated partner. Financial DateTime values
+serialize to UTC milliseconds. Top-up bank information accepts the same
+NEXT_PUBLIC_COMPANY_BANK_* process environment variables as the legacy service.
+
+Phase 7 regressions cover route authentication/permissions, ownership separation,
+state transitions, proof/input validation, immutable bank snapshots, commission
+release/reversal with reservation guards, zero invoices, rollback on ledger
+failure, repair corrections/refunds/deleted history, report projections, concurrent
+withdrawal reservation, exactly-once top-up/completion, concurrent wallet credits,
+and settlement overpayment prevention.
+
+Validation: the full disposable-PostgreSQL suite passed with race detection;
+the final focused phase 7/inventory suite and financial-date tests also passed.
+Go vet, Linux build, golangci-lint (zero issues), and whitespace checks passed.
+
+Frontend routing and live data are unchanged. Browser/proxy acceptance, production
+cutover, full response fixture comparison, and mixed Node/Go writer contention
+remain rollout gates; Go row locks cannot make legacy unlocked writers safe.
+
 ## Phase 7 — partner administration (2026-11-06)
 
 Four more handlers are implemented (141/185 overall): partner listing, partner

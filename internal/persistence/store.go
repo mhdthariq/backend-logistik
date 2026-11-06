@@ -102,7 +102,7 @@ func normalizeDates(object map[string]any) {
 				}
 			}
 		case string:
-			if strings.HasSuffix(key, "At") || key == "effectiveFrom" || key == "effectiveTo" || key == "validFrom" || key == "validTo" {
+			if strings.HasSuffix(key, "At") || key == "effectiveFrom" || key == "effectiveTo" || key == "validFrom" || key == "validTo" || key == "issueDate" || key == "dueDate" || key == "repairDate" {
 				for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04:05.999999999"} {
 					if parsed, err := time.Parse(layout, v); err == nil {
 						object[key] = parsed.UTC().Format("2006-01-02T15:04:05.000Z")

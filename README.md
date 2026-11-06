@@ -1,6 +1,6 @@
 # NovaLogistik Go backend
 
-Incremental migration from `../kirimku` to Go + Fiber v3. **141 of 185 legacy HTTP
+Incremental migration from `../kirimku` to Go + Fiber v3. **181 of 185 legacy HTTP
 handlers are implemented**: the greeting, identity/access management, master-data
 routes, mobile capability discovery, shipment CRUD, package CRUD/batches,
 pricing, documents, internal tracking, print logging, pickup submission,
@@ -14,8 +14,11 @@ overview, capacity change trends and owner-only bulk koli configuration;
 transport planning, execution, checkpoint/activity evidence, multi-drop approval,
 operational expenses/reversals, return tasks and atomic vehicle-owner settlement;
 payment verification/rejection, the warehouse-scoped B2C unpaid list, and partner
-administration with wallet summaries, profit sharing and account management.
-The remaining 44 handlers are listed in
+administration with wallet summaries, profit sharing and account management; B2B invoices,
+commission release/reversal, wallet ledger/history/adjustments, top-up verification,
+withdrawal reservations and processing, repair deductions/refunds/history, partner
+self-service dashboards/vehicles/transports, and company finance reports.
+The remaining 4 handlers are listed in
 [the inventory](docs/route-inventory.csv). Frontend routing still points to Next.js;
 implementation status does not mean production traffic has switched.
 
@@ -54,8 +57,10 @@ CRUD/cancellation/scans, delivery CRUD/scans, the gudang workspace, and fleet
 capacity overview/bulk koli configuration and capacity change trends, transport
 CRUD/lifecycle/activities/check-ins/drops/expenses/settlement, return tasks,
 payment verification/rejection, unpaid B2C shipments, and partner listing/settings/
-account profile editing/disabling.
-All phase 1–6 inventory rows are implemented, including pickup confirmation and delivery
+account profile editing/disabling, invoices/lines/settlements/print/send, commissions,
+wallet/topups/withdrawals, repairs/logs/vehicle choices, partner dashboard/vehicles/
+transports, and finance summary/operational-expense reports.
+All phase 1–7 inventory rows are implemented, including pickup confirmation and delivery
 completion with evidence photos, shipment payments/expenses and marketing notices.
 The inventory records exact method/path pairs.
 
