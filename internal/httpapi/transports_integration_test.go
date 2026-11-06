@@ -33,6 +33,80 @@ func evidenceBody(t *testing.T, cp int, lon float64) string {
 	}
 	return string(raw)
 }
+
+func TestTransportListRelationsAndScopePostgres(t *testing.T) {
+	db, app, owner, cid := shipmentApp(t)
+	seedTransport(t, db)
+	worker := loginAs(t, app, "worker", "")
+	s := newShipment(t, app, owner, cid, `,"originWarehouseId":10,"destinationWarehouseId":11,"details":[{"description":"Box","actualWeightKg":2,"lengthCm":100,"widthCm":100,"heightCm":100}]`)
+	shipmentSQL(t, db, `UPDATE "MasterShipment" SET status='IN_TRANSPORT',"chargeableWeightKg"=9,"priceAmount"=100 WHERE id=$1`, s["id"])
+	shipmentSQL(t, db, `INSERT INTO "Transport" (id,"transportCode","routeId","vehicleId","driverId",status,"createdAt","updatedAt")
+ SELECT g,'BULK-'||g,10,10,11,'ARRIVED','2026-11-01'::timestamp+g*interval '1 second',NOW() FROM generate_series(100,131) g;
+ UPDATE "Transport" SET "driverId"=10,"kenekId"=11,status='COMPLETED' WHERE id=100;
+ UPDATE "Transport" SET "routeId"=11,status='CANCELLED' WHERE id=130;
+ UPDATE "Transport" SET "trackingMode"='ACTIVITY' WHERE id=129;
+ UPDATE "Transport" SET "routeId"=NULL,"vehicleId"=11,"driverId"=NULL,"trackingMode"='ACTIVITY',status='PLANNED' WHERE id=131;
+ INSERT INTO "Partner" (id,"userId",type,"updatedAt") VALUES (10,3,'VEHICLE_OWNER',NOW());
+ UPDATE "Vehicle" SET "ownerId"=10 WHERE id=10;
+ INSERT INTO "TransportSettlement" ("settlementCode","transportId","vehicleId","ownerId","transportValue","companyPercent","ownerPercent","companyAmount","ownerAmount","finalizedAt","updatedAt") VALUES ('SET-LIST',100,10,10,100,30,70,30,70,'2026-11-01',NOW());
+ INSERT INTO "CheckpointRecord" ("transportId","checkpointId",latitude,longitude,"withinRadius","photoUrl") VALUES (100,10,0,0,true,'private-photo');
+ UPDATE "Employee" SET "isActive"=false WHERE id=11`)
+	shipmentSQL(t, db, `INSERT INTO "TransportShipment" ("transportId","shipmentId") VALUES (100,$1)`, s["id"])
+	rows := apiCall(t, app, "GET", "/api/v1/transports", "", owner, "", 200)["data"].([]any)
+	if len(rows) != 32 || rows[0].(map[string]any)["id"] != float64(131) {
+		t.Fatal("transport list lost rows or ordering", rows)
+	}
+	row := rows[len(rows)-1].(map[string]any)
+	for key, want := range map[string]any{"id": float64(100), "driverName": "Courier", "kenekName": nil, "vehicleOwnerName": "Inherited Owner", "checkpointRecordsCount": float64(1), "shipmentCount": float64(1), "totalKoli": float64(1), "totalWeightKg": float64(9), "totalActualWeightKg": float64(2), "totalVolumeM3": float64(1), "totalPrice": float64(100)} {
+		if row[key] != want {
+			t.Errorf("%s = %v, want %v", key, row[key], want)
+		}
+	}
+	if row["settlement"].(map[string]any)["ownerAmount"] != float64(70) || len(row["routeCheckpoints"].([]any)) != 3 || len(row["gudangIds"].([]any)) != 2 || row["shipments"].([]any)[0].(map[string]any)["id"] != s["id"] || row["capacity"].(map[string]any)["overallStatus"] != "OVERLIMIT" {
+		t.Fatal("transport relations or aggregates changed", row)
+	}
+	empty := rows[0].(map[string]any)
+	if empty["routeName"] != nil || empty["settlement"] != nil || empty["totalPrice"] != nil || empty["vehicleOwnerName"] != nil || len(empty["shipments"].([]any)) != 0 || len(empty["routeCheckpoints"].([]any)) != 0 {
+		t.Fatal("optional list relations changed", empty)
+	}
+	activity := rows[2].(map[string]any)
+	if activity["routeName"] != "Outbound" || len(activity["routeCheckpoints"].([]any)) != 0 {
+		t.Fatal("activity transport exposed route checkpoints", activity)
+	}
+	for _, tc := range []struct {
+		name, query, token string
+		count              int
+	}{
+		{"search code", "?search=bulk-100", owner, 1},
+		{"search vehicle", "?search=truck-11", owner, 1},
+		{"search route", "?search=outbound", owner, 30},
+		{"status", "?status=ARRIVED", owner, 29},
+		{"history overrides status", "?history=true&status=PLANNED", owner, 31},
+		{"executor assignments", "", worker, 1},
+		{"explicit mine", "?mine=true", worker, 1},
+		{"unbound owner mine", "?mine=true", owner, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := apiCall(t, app, "GET", "/api/v1/transports"+tc.query, "", tc.token, "", 200)["data"].([]any)
+			if len(got) != tc.count {
+				t.Fatalf("got %d rows, want %d", len(got), tc.count)
+			}
+		})
+	}
+	shipmentSQL(t, db, `UPDATE "User" SET "employeeId"=11 WHERE id=2`)
+	if got := apiCall(t, app, "GET", "/api/v1/transports?mine=true", "", worker, "", 200)["data"].([]any); len(got) != 30 || got[len(got)-1].(map[string]any)["id"] != float64(100) {
+		t.Fatalf("driver/kenek assignments or warehouse scope changed: got %d rows, want 30 including transport 100", len(got))
+	}
+	shipmentSQL(t, db, `UPDATE "User" SET "employeeId"=NULL WHERE id=2`)
+	if got := apiCall(t, app, "GET", "/api/v1/transports", "", worker, "", 200)["data"].([]any); len(got) != 0 {
+		t.Fatal("unbound executor saw transports", got)
+	}
+	shipmentSQL(t, db, `UPDATE "User" SET "employeeId"=10 WHERE id=2; INSERT INTO "UserPermission" ("userId","permissionId") VALUES (2,202)`)
+	if got := apiCall(t, app, "GET", "/api/v1/transports", "", worker, "", 200)["data"].([]any); len(got) != 30 {
+		t.Fatal("warehouse scope changed", got)
+	}
+}
+
 func TestTransportCheckpointLifecyclePostgres(t *testing.T) {
 	db, app, owner, cid := shipmentApp(t)
 	seedTransport(t, db)

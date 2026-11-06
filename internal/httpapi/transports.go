@@ -296,7 +296,26 @@ func fallback(a, b any) any {
 	return b
 }
 func (b *business) transports(r *request) (any, error) {
-	rows, err := r.many(`SELECT jsonb_build_object('id',t.id) FROM "Transport" t LEFT JOIN "Route" r ON r.id=t."routeId" JOIN "Vehicle" v ON v.id=t."vehicleId" WHERE ($1='' OR t.status=$1 OR $2) AND (NOT $2 OR t.status IN ('ARRIVED','COMPLETED','CANCELLED')) AND ($3='' OR strpos(lower(t."transportCode"),lower($3))>0 OR strpos(lower(COALESCE(r.name,'')),lower($3))>0 OR strpos(lower(v."vehicleNumber"),lower($3))>0) ORDER BY t."createdAt" DESC,t.id DESC`, r.c.Query("status"), r.c.Query("history") == "true", strings.TrimSpace(r.c.Query("search")))
+	// Fetch list relations together so database round trips do not grow with the fleet.
+	rows, err := r.many(`SELECT to_jsonb(t)||jsonb_build_object(
+ 'route',to_jsonb(rt)||jsonb_build_object('checkpoints',COALESCE((SELECT jsonb_agg(to_jsonb(cp) ORDER BY cp.sequence) FROM "Checkpoint" cp WHERE cp."routeId"=rt.id),'[]'::jsonb)),
+ 'vehicle',jsonb_build_object('vehicleNumber',v."vehicleNumber",'name',v.name,'ownerId',v."ownerId",'ownerName',owner.name,'maxWeightKg',v."maxWeightKg",'maxVolumeM3',v."maxVolumeM3",'maxKoli',v."maxKoli"),
+ 'driverName',driver.name,'kenekName',kenek.name,
+ 'settlement',CASE WHEN settlement.id IS NULL THEN NULL ELSE jsonb_build_object('settlementCode',settlement."settlementCode",'status',settlement.status,'transportValue',settlement."transportValue",'companyPercent',settlement."companyPercent",'ownerPercent',settlement."ownerPercent",'companyAmount',settlement."companyAmount",'ownerAmount',settlement."ownerAmount",'finalizedAt',settlement."finalizedAt") END,
+ 'checkpointRecordsCount',(SELECT count(*) FROM "CheckpointRecord" cr JOIN "Checkpoint" cp ON cp.id=cr."checkpointId" WHERE cr."transportId"=t.id),
+ 'shipments',COALESCE((SELECT jsonb_agg(jsonb_build_object('master',to_jsonb(s),'packages',a.packages,'actualWeight',a.weight,'volume',a.volume) ORDER BY ts."shipmentId")
+ FROM "TransportShipment" ts JOIN "MasterShipment" s ON s.id=ts."shipmentId" JOIN "Customer" c ON c.id=s."customerId"
+ CROSS JOIN LATERAL (SELECT count(*) packages,COALESCE(sum(ds."actualWeightKg"),0) weight,COALESCE(sum(COALESCE(ds."lengthCm",0)*COALESCE(ds."widthCm",0)*COALESCE(ds."heightCm",0)/1000000.0),0) volume FROM "DetailShipment" ds WHERE ds."masterId"=s.id) a
+ WHERE ts."transportId"=t.id),'[]'::jsonb))
+ FROM "Transport" t LEFT JOIN "Route" rt ON rt.id=t."routeId" JOIN "Vehicle" v ON v.id=t."vehicleId"
+ LEFT JOIN "Partner" p ON p.id=v."ownerId" LEFT JOIN "User" owner ON owner.id=p."userId"
+ LEFT JOIN "Employee" driver ON driver.id=t."driverId" AND driver."isActive"
+ LEFT JOIN "Employee" kenek ON kenek.id=t."kenekId" AND kenek."isActive"
+ LEFT JOIN "TransportSettlement" settlement ON settlement."transportId"=t.id
+ WHERE ($1='' OR t.status=$1 OR $2) AND (NOT $2 OR t.status IN ('ARRIVED','COMPLETED','CANCELLED'))
+ AND ($3='' OR strpos(lower(t."transportCode"),lower($3))>0 OR strpos(lower(COALESCE(rt.name,'')),lower($3))>0 OR strpos(lower(v."vehicleNumber"),lower($3))>0)
+ AND (NOT $4 OR ($5>0 AND (t."driverId"=$5 OR t."kenekId"=$5)))
+ ORDER BY t."createdAt" DESC,t.id DESC`, r.c.Query("status"), r.c.Query("history") == "true", strings.TrimSpace(r.c.Query("search")), executorOnly(r.actor) || r.c.Query("mine") == "true", idValue(r.actor["employeeId"]))
 	if err != nil {
 		return nil, err
 	}
@@ -307,14 +326,8 @@ func (b *business) transports(r *request) (any, error) {
 	}
 	unscoped, wid := warehouseScope(r.actor)
 	warning := threshold(r)
-	for _, row := range rows {
-		t, e := r.loadTransport(idValue(row["id"]), false)
-		if e != nil {
-			return nil, e
-		}
-		if (executorOnly(r.actor) || r.c.Query("mine") == "true") && !crew(r.actor, t) {
-			continue
-		}
+	for _, t := range rows {
+		t["shipments"] = objects(t["shipments"])
 		gudang := transportGudangIDs(t, ws)
 		visible := unscoped
 		for _, id := range gudang {
@@ -334,16 +347,8 @@ func (b *business) transports(r *request) (any, error) {
 		}
 		item["origin"], item["destination"] = fallback(t["origin"], route["origin"]), fallback(t["destination"], route["destination"])
 		item["vehicleNumber"], item["vehicleName"], item["vehicleOwnerId"], item["vehicleOwnerName"] = v["vehicleNumber"], v["name"], v["ownerId"], v["ownerName"]
-		for _, key := range []string{"driver", "kenek"} {
-			emp, e := r.employeeBrief(t[key+"Id"], true)
-			if e != nil {
-				return nil, e
-			}
-			item[key+"Name"] = object(emp)["name"]
-		}
-		item["settlement"], err = r.one(`SELECT jsonb_build_object('settlementCode',"settlementCode",'status',status,'transportValue',"transportValue",'companyPercent',"companyPercent",'ownerPercent',"ownerPercent",'companyAmount',"companyAmount",'ownerAmount',"ownerAmount",'finalizedAt',"finalizedAt") FROM "TransportSettlement" WHERE "transportId"=$1`, t["id"])
-		if err != nil {
-			return nil, err
+		for _, key := range []string{"driverName", "kenekName", "settlement", "checkpointRecordsCount"} {
+			item[key] = t[key]
 		}
 		ships := []map[string]any{}
 		for _, ts := range transportShips(t) {
@@ -351,8 +356,6 @@ func (b *business) transports(r *request) (any, error) {
 			ships = append(ships, map[string]any{"id": s["id"], "masterCode": s["masterCode"], "status": s["status"], "packages": ts["packages"]})
 		}
 		item["shipments"], item["gudangIds"] = ships, gudang
-		records, _ := t["checkpointRecords"].([]map[string]any)
-		item["checkpointRecordsCount"] = len(records)
 		totals, load := loadTotals(transportShips(t))
 		for k, v := range totals {
 			item[k] = v
