@@ -1,6 +1,6 @@
 # NovaLogistik Go backend
 
-Incremental migration from `../kirimku` to Go + Fiber v3. **181 of 185 legacy HTTP
+Incremental migration from `../kirimku` to Go + Fiber v3. **185 of 185 legacy HTTP
 handlers are implemented**: the greeting, identity/access management, master-data
 routes, mobile capability discovery, shipment CRUD, package CRUD/batches,
 pricing, documents, internal tracking, print logging, pickup submission,
@@ -17,10 +17,11 @@ payment verification/rejection, the warehouse-scoped B2C unpaid list, and partne
 administration with wallet summaries, profit sharing and account management; B2B invoices,
 commission release/reversal, wallet ledger/history/adjustments, top-up verification,
 withdrawal reservations and processing, repair deductions/refunds/history, partner
-self-service dashboards/vehicles/transports, and company finance reports.
-The remaining 4 handlers are listed in
-[the inventory](docs/route-inventory.csv). Frontend routing still points to Next.js;
-implementation status does not mean production traffic has switched.
+self-service dashboards/vehicles/transports, company finance reports, the
+main/driver/kurir dashboards and warehouse-scoped audit-log queries.
+[The inventory](docs/route-inventory.csv) records every handler. Frontend routing
+defaults to Next.js; opt in with the build-time `GO_API_ORIGIN` setting only after
+the [cutover gates](docs/cutover.md) pass. Production traffic has not switched.
 
 ## Run
 
@@ -60,7 +61,7 @@ payment verification/rejection, unpaid B2C shipments, and partner listing/settin
 account profile editing/disabling, invoices/lines/settlements/print/send, commissions,
 wallet/topups/withdrawals, repairs/logs/vehicle choices, partner dashboard/vehicles/
 transports, and finance summary/operational-expense reports.
-All phase 1–7 inventory rows are implemented, including pickup confirmation and delivery
+All phase 1–8 inventory rows are implemented, including dashboards, audit logs, pickup confirmation and delivery
 completion with evidence photos, shipment payments/expenses and marketing notices.
 The inventory records exact method/path pairs.
 
@@ -93,7 +94,8 @@ go tool cover -func=coverage.out
 
 The script starts temporary loopback-only PostgreSQL, creates unique test databases,
 applies the actual Prisma SQL history, runs race tests, vet, build and lint, and stops
-PostgreSQL even on failure. It never reads `.env`. See [testing](docs/testing.md)
+PostgreSQL even on failure. It also tests binary restart and SIGTERM shutdown.
+It never reads `.env`. See [testing](docs/testing.md)
 for workspace-local tools and remaining acceptance gates.
 
 ## Layout

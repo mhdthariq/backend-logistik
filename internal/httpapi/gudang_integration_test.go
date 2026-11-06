@@ -201,5 +201,15 @@ func TestGudangTenantIsolationPostgres(t *testing.T) {
 		if row := gudangRow(t, w["arrivals"], 10); row["customerName"] != tc.name || row["detailsCount"] != float64(0) || row["pickupCode"] != nil || row["kurirName"] != nil {
 			t.Fatal(row)
 		}
+		dashboard := apiCall(t, app, "GET", "/api/v1/dashboard?from=2000-01-01&to=2099-01-01", "", tc.token, tc.corp, 200)["data"].(map[string]any)
+		if row := dashboard["recentShipments"].([]any)[0].(map[string]any); row["customerName"] != tc.name {
+			t.Fatal(row)
+		}
+		audits := apiCall(t, app, "GET", "/api/v1/audit-logs?entityType=auth", "", tc.token, tc.corp, 200)["data"].([]any)
+		if len(audits) != 1 {
+			t.Fatal(audits)
+		}
 	}
+	apiCall(t, app, "GET", "/api/v1/dashboard", "", tokenA, "B", 401)
+	apiCall(t, app, "GET", "/api/v1/audit-logs", "", tokenA, "B", 401)
 }

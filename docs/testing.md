@@ -1,5 +1,61 @@
 # Backend test strategy
 
+## Phase 8 — aggregates and cutover preparation (2026-11-06)
+
+All 185 inventory method/path pairs are implemented and registration-tested.
+Main, driver and kurir dashboards preserve permission-gated counters/approvals,
+employee-only assignments, active tasks outside the selected period, checkpoint
+progress, capacity totals, marketing wallet/commission projections and warehouse
+workspace projections. The main endpoint requires authentication; driver requires
+transport.view, kurir requires pickup.view, and audit queries require audit_log.view.
+
+Audit queries retain filters/search, JSON before/after parsing, actor name/username
+projections, company-wide metadata and legacy scoped pagination: at most 500
+candidates are fetched before warehouse filtering and scoped total is page length.
+Deleted/missing operational references default-deny for scoped users; company-wide
+entity types remain visible. Actor credential fields are never returned.
+
+Dates use UTC day boundaries and UTC millisecond serialization, matching a UTC
+legacy deployment. Non-UTC legacy deployments require a period-fixture review.
+The legacy days calculation is retained (a single selected date reports days=2).
+Invalid dates and non-integer audit parameters explicitly return 422 rather than
+passing invalid Prisma inputs downstream. Dashboard database failures return a
+redacted error instead of silently dropping optional wallet/gudang sections.
+
+Legacy visibility quirks remain subject to operator review: marketing revenue and
+capacity are company-wide; approval cards use permissions rather than warehouse
+filters; pendingCommission sums the most recent five commissions. Capacity samples
+at most 200 active transports. No new financial semantics or schema changes were
+introduced by phase 8.
+
+PostgreSQL regressions cover missing authentication/permissions/employee links,
+date bounds, assignment isolation, duplicate scans, driver/kenek assignments,
+planned ordering and checkpoint progress, warehouse/marketing counts, revenue,
+held stock/unpaid counts, audit reference resolution, missing/deleted entities,
+JSON/date/null projections, filters/pagination, and overlapping IDs in two tenants.
+`scripts/smoke-process.sh` tests the compiled binary twice on loopback with a clean
+environment and bounded SIGTERM shutdown; `test-wsl.sh` runs it after building.
+
+Frontend `GO_API_ORIGIN` is an opt-in build-time beforeFiles rewrite so existing
+Next.js route handlers cannot intercept Go requests. Unit tests cover disabled,
+enabled and invalid-origin configurations. The [cutover runbook](cutover.md)
+describes deployment, full-method routing, file ownership and rollback.
+
+Validation: the complete disposable-PostgreSQL Go suite passed with race detection,
+followed by vet, Linux build, binary restart/SIGTERM smoke and golangci-lint
+(zero issues). Frontend TypeScript and focused ESLint passed. Routing/dashboard
+UI tests passed 16 tests; the targeted legacy driver-history regression also
+passed. A live Next.js proxy smoke against a synthetic loopback upstream verified
+route precedence, dynamic IDs, encoded query strings, bearer/corporate headers,
+GET/POST/PUT/DELETE/OPTIONS bodies and HEAD behavior without using a database.
+The broader legacy completed-consumers suite has one pre-existing finance mock
+failure (`customer-income.ts` needs `payment.groupBy`); its other 11 tests passed.
+
+Full old/new response fixture reconciliation across 185 handlers, real browser
+acceptance for every role, production-size load tests, backup restoration and
+staging routing rollback remain open. No production routing or live database was
+changed. The earlier phase entries below record historical implementation states.
+
 ## Phase 7 — completed finance migration (2026-11-06)
 
 All 47 phase 7 method/path pairs are implemented (181/185 overall). The inventory

@@ -25,6 +25,7 @@ go test -race ./... -count=1 -coverpkg=novalogistik/backend/... -coverprofile=.t
 awk 'NR == 1 || index($0, "novalogistik/backend/") == 1' .tools/coverage-all.out > coverage.out
 go vet ./...
 go build -o bin/api-linux ./cmd/api
+bash scripts/smoke-process.sh
 if command -v golangci-lint >/dev/null; then
   golangci-lint run
 else

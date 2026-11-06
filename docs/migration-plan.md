@@ -14,7 +14,7 @@ schema reset or demo seeding is included. An additive Prisma migration reconcile
 two missing schema items; only disposable tests apply it here.
 
 Source of truth is the code under `../../kirimku/`, not historical API examples.
-The refreshed audit finds 185 exported handlers: 181 implemented and 4 planned.
+The refreshed audit finds 185 exported handlers, all implemented.
 Phase 2 has 18 route implementations, Phase 3 has 33, and Phase 8 additionally
 has mobile/config. Phase 4 has 33 implementations: shipment CRUD, package CRUD and
 batch changes, pricing, documents, internal tracking, print logging, pickup submission,
@@ -36,8 +36,10 @@ warehouse-scoped B2C unpaid list, and partner administration (list with wallet
 summaries, profit-sharing/alignment settings, account editing/disabling). Partner
 self-service views, invoices and settlements with commission release/reversal, wallet
 ledger/adjustments, top-ups, withdrawals, repairs, and company financial reports are
-also implemented. All phase 1–7 routes are registered; only four phase 8 routes
-remain planned.
+also implemented. Phase 8 implements the main/driver/kurir dashboards and scoped
+audit-log queries. All phase 1–8 routes are registered. An opt-in same-origin
+frontend rewrite and a [cutover/rollback runbook](cutover.md) prepare deployment;
+production routing and staging acceptance gates remain open.
 The exact methods, paths, source
 files, assigned phases, and status are in [route-inventory.csv](route-inventory.csv).
 Regenerate after source changes with:
@@ -87,7 +89,7 @@ checks. The new `/health/live` endpoint is not a legacy route.
 | **5 — Pickup, warehouse, delivery** | Pickup assignment/confirmation/scans, gudang receiving and delivery completion | Port delivery completion and related domain/service suites. Courier ownership, duplicate scans, partial handover, wrong warehouse, missing proof, terminal state conflicts, payment prerequisites, rollback on audit/proof failure. Test GPS/photo payload behavior and package-by-package flow. |
 | **6 — Transport and capacity (implemented)** | Transport creation/departure/check-ins/arrival/completion, activities, expenses, drops, return tasks, fleet capacity and settlement | Disposable PostgreSQL regressions cover lifecycle, crew/warehouse scope, multi-drop, proof arrays, undo-arrival, expense approvals/corrections/reversal, planning contention and settlement rollback/exactly-once wallet credit. Full legacy fixtures, mixed-runtime contention and staging acceptance remain rollout gates. |
 | **7 — Finance and partners** | Payments/unpaid, invoices/lines/settlements, wallet/topups/withdrawals, commissions, partners and partner views, repairs, finance reports | Port invoice settlement/bank, shipment payment, customer income, operational expense report, repair lifecycle/finance, reversal and finance scope suites. Test duplicate/concurrent actions, exact rounding, partial payments, PPh/adjustments, wallet reservations, ledger conservation, rollback, append-only action logs and reconciliation totals. |
-| **8 — Aggregates and cutover** | Dashboard variants, audit-log queries, full parity review, deployment and frontend routing | Full contract suite plus disposable-DB integration, UI/E2E smoke tests for every role, two-tenant scenarios, upload/print/tracking checks, load tests, race detector, restart/shutdown smoke. Reconcile read-only old/new reports, verify backup/restore and route rollback in staging before full cutover. |
+| **8 — Aggregates and cutover (code implemented; acceptance open)** | Dashboard variants, audit-log queries, opt-in frontend routing, deployment/rollback runbook | Full contract suite plus disposable-DB integration, UI/E2E smoke tests for every role, two-tenant scenarios, upload/print/tracking checks, load tests, race detector, restart/shutdown smoke. Reconcile read-only old/new reports, verify backup/restore and route rollback in staging before full cutover. |
 
 Phases 4–7 contain cross-module dependencies: start by extracting shared Go use cases
 and reviewing the complete transaction graph. HTTP route ownership does not mean
