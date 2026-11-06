@@ -1,4 +1,4 @@
-package handler
+package vercelhandler
 
 import (
 	"encoding/json"
