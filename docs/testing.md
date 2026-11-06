@@ -85,8 +85,10 @@ partner workflow summaries, and monthly ledger groups. Invoice payment monthly
 buckets retain the legacy behavior of grouping only the eight recent settlements.
 Partner self-service views scope wallets, commissions, vehicles, transports,
 repairs and their logs to the authenticated partner. Financial DateTime values
-serialize to UTC milliseconds. Top-up bank information accepts the same
-NEXT_PUBLIC_COMPANY_BANK_* process environment variables as the legacy service.
+serialize to UTC milliseconds. Top-up bank information now comes from active
+tenant BankAccount masters via bankAccounts, replacing the legacy bankInfo/env
+fallback. Both runtimes and the wallet UI use the same list; no active master
+returns an empty list. Deploy these API and wallet changes together.
 
 Phase 7 regressions cover route authentication/permissions, ownership separation,
 state transitions, proof/input validation, immutable bank snapshots, commission

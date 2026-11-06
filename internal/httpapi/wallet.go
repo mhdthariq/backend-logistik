@@ -3,7 +3,6 @@ package httpapi
 import (
 	"fmt"
 	"math"
-	"os"
 	"strings"
 	"time"
 
@@ -174,14 +173,8 @@ func (b *business) walletAdjustment(r *request) (any, error) {
 	b.audit(r, "created", "wallet_adjustment", t["id"], ref, nil, map[string]any{"partnerId": id, "amount": amount, "direction": direction, "reason": reason})
 	return map[string]any{"transactionId": t["id"], "balanceBefore": t["balanceBefore"], "balanceAfter": t["balanceAfter"], "wallet": summary}, nil
 }
-func companyBank() map[string]any {
-	value := func(key, fallback string) string {
-		if s, ok := os.LookupEnv(key); ok {
-			return s
-		}
-		return fallback
-	}
-	return map[string]any{"bankName": value("NEXT_PUBLIC_COMPANY_BANK_NAME", "Bank Mandiri"), "accountNumber": value("NEXT_PUBLIC_COMPANY_BANK_ACCOUNT", "123-00-4567890"), "accountName": value("NEXT_PUBLIC_COMPANY_BANK_HOLDER", "PT NovaLogistik")}
+func (r *request) topupBankAccounts() ([]map[string]any, error) {
+	return r.many(`SELECT jsonb_build_object('id',id,'bankName',"bankName",'accountNumber',"accountNumber",'accountName',"accountName") FROM "BankAccount" WHERE "isActive" ORDER BY "bankName",id`)
 }
 
 const partnerJoin = `to_jsonb(p)||jsonb_build_object('user',jsonb_build_object('name',u.name,'username',u.username))`
@@ -198,7 +191,11 @@ func (b *business) topups(r *request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"topUps": rows, "bankInfo": companyBank()}, nil
+	accounts, err := r.topupBankAccounts()
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"topUps": rows, "bankAccounts": accounts}, nil
 }
 func (b *business) createTopup(r *request) (any, error) {
 	id := idValue(r.body["partnerId"])
@@ -217,6 +214,10 @@ func (b *business) createTopup(r *request) (any, error) {
 	if !strings.HasPrefix(proof, "data:") || len(proof) > 12000000 {
 		return nil, fieldProblem("Bukti transfer wajib dilampirkan (maksimal 8 MB).", "proofUrl", "Bukti tidak valid.")
 	}
+	accounts, err := r.topupBankAccounts()
+	if err != nil {
+		return nil, err
+	}
 	code, err := r.nextCode("TopUpRequest", "requestCode", "TOP-", 731040)
 	if err != nil {
 		return nil, err
@@ -226,7 +227,7 @@ func (b *business) createTopup(r *request) (any, error) {
 		return nil, err
 	}
 	b.audit(r, "created", "topup", t["id"], code, nil, map[string]any{"amount": amount, "status": "PENDING_VERIFICATION", "proofAttached": true})
-	return map[string]any{"topUp": t, "bankInfo": companyBank()}, nil
+	return map[string]any{"topUp": t, "bankAccounts": accounts}, nil
 }
 func (b *business) reviewTopup(r *request) (any, error) {
 	t, err := r.find("TopUpRequest", "Top up tidak ditemukan.", true)
