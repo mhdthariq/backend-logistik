@@ -1,5 +1,39 @@
 # Backend test strategy
 
+## Phase 7 — partner administration (2026-11-06)
+
+Four more handlers are implemented (141/185 overall): partner listing, partner
+settings, profile editing and account disabling. Company-side permissions remain
+independent: partner.view, partner.update, user.update and user.disable. Partner
+listing includes inactive partners and lazily creates missing wallets with a
+conflict-safe insert. Its response preserves ledger earnings by type/direction,
+withdrawal reservations, clamped available balances, relation counts, warehouse
+alignment, bank information and rounded combined earnings. No ledger entry or
+balance adjustment is created by listing.
+
+Settings validate positive percentages summing to 100 within the legacy tolerance
+and active warehouse IDs, preserve empty-note/invalid-number fallback behavior,
+and change only future settlement percentages. Profile updates preserve the
+legacy no-change response, raw password hashing, masked password audit entries,
+and JavaScript Boolean behavior for isActive. Account-disable and session-token
+deletion commit atomically; DELETE protects Owner accounts and keeps the partner,
+wallet and financial history intact. Invalid warehouse IDs use Go's existing
+422 validation convention. Audit remains best-effort after commit.
+
+Disposable PostgreSQL regressions cover wallet creation under concurrent listing,
+ledger/reservation totals, filters/nulls, permissions, warehouse validation,
+protected account fields, raw password verification, redacted response/audit data,
+session invalidation and rollback on revocation failure. Existing settlement and
+tenant tests now verify historical share snapshots, future share changes and
+same-ID partner isolation across tenants. Partner self-service, remaining finance
+routes, full legacy response fixtures, browser acceptance and mixed-runtime
+contention remain open. Frontend routing and live databases are unchanged.
+
+Validation: the full Go regression suite passed with race detection and disposable
+PostgreSQL, as did focused partner/settlement/tenant/inventory tests, vet, Linux
+build and golangci-lint (zero issues). The adjacent legacy login/customer suites
+passed 39 tests; no dedicated legacy partner-administration suite was present.
+
 ## Phase 7 — payment review and unpaid list (2026-11-06)
 
 Three phase 7 handlers are implemented (137/185 overall): payment verification,

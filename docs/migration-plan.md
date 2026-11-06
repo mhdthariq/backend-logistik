@@ -14,7 +14,7 @@ schema reset or demo seeding is included. An additive Prisma migration reconcile
 two missing schema items; only disposable tests apply it here.
 
 Source of truth is the code under `../../kirimku/`, not historical API examples.
-The refreshed audit finds 185 exported handlers: 137 implemented and 48 planned.
+The refreshed audit finds 185 exported handlers: 141 implemented and 44 planned.
 Phase 2 has 18 route implementations, Phase 3 has 33, and Phase 8 additionally
 has mobile/config. Phase 4 has 33 implementations: shipment CRUD, package CRUD and
 batch changes, pricing, documents, internal tracking, print logging, pickup submission,
@@ -31,8 +31,10 @@ Phase 6 has all 33 implementations: capacity trend, fleet capacity overview,
 owner-only bulk koli configuration, transport CRUD/lifecycle/check-ins/activities,
 multi-drop and delivery approval, operational expenses/approval/reversal,
 return tasks and vehicle-owner settlement. Settlement and wallet credit share
-one Go transaction. Phase 7 now implements payment verification/rejection and the
-warehouse-scoped B2C unpaid list; its other finance/partner handlers remain planned.
+one Go transaction. Phase 7 now implements payment verification/rejection, the
+warehouse-scoped B2C unpaid list, and partner administration (list with wallet
+summaries, profit-sharing/alignment settings, account editing/disabling). Partner
+self-service views and other finance handlers remain planned.
 The exact methods, paths, source
 files, assigned phases, and status are in [route-inventory.csv](route-inventory.csv).
 Regenerate after source changes with:

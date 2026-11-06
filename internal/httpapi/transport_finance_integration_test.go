@@ -118,12 +118,18 @@ func TestTransportSettlementAtomicPostgres(t *testing.T) {
 	}
 	shipmentSQL(t, db, `UPDATE "Transport" SET status='COMPLETED' WHERE id=$1`, tr["id"])
 	// Concurrent different transports credit the same wallet without losing either amount.
+	// Updating the partner affects future settlements, never historical snapshots.
+	apiCall(t, app, "PUT", "/api/v1/partners/10", `{"companyPercent":50,"partnerPercent":50}`, owner, "", 200)
+	var ownerPercent float64
+	if err := db.pool.QueryRow(t.Context(), `SELECT "ownerPercent","ownerAmount" FROM "TransportSettlement" WHERE "transportId"=$1`, tr["id"]).Scan(&ownerPercent, &amount); err != nil || ownerPercent != 70 || amount != 700 {
+		t.Fatal(ownerPercent, amount, err)
+	}
 	shipmentSQL(t, db, `INSERT INTO "Transport" (id,"transportCode","vehicleId",status,"updatedAt") VALUES (90,'SETTLE-A',10,'ARRIVED',NOW()),(91,'SETTLE-B',11,'ARRIVED',NOW())`)
 	statuses = concurrentTransportCalls(t, app, owner, []string{"/api/v1/transports/90/settle", "/api/v1/transports/91/settle"}, `{"transportValue":100}`)
 	if statuses[0] != 200 || statuses[1] != 200 {
 		t.Fatal(statuses)
 	}
-	if err := db.pool.QueryRow(t.Context(), `SELECT balance FROM "Wallet" WHERE "partnerId"=10`).Scan(&balance); err != nil || balance != 840 {
+	if err := db.pool.QueryRow(t.Context(), `SELECT balance FROM "Wallet" WHERE "partnerId"=10`).Scan(&balance); err != nil || balance != 800 {
 		t.Fatal(balance, err)
 	}
 }

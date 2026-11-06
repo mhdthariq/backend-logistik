@@ -262,4 +262,22 @@ func TestShipmentFinanceTenantIsolationPostgres(t *testing.T) {
 		t.Fatal(rows)
 	}
 	apiCall(t, app, "POST", "/api/v1/payments/10/reject", `{}`, ownerA, "B", 401)
+	for _, db := range []testDatabase{a, b} {
+		shipmentSQL(t, db, `INSERT INTO "Partner" (id,"userId",type,"updatedAt") VALUES (10,2,'MARKETING',NOW())`)
+	}
+	apiCall(t, app, "PUT", "/api/v1/partners/10", `{"companyPercent":60,"partnerPercent":40}`, ownerA, "A", 200)
+	apiCall(t, app, "PUT", "/api/v1/partners/10/profile", `{"name":"Tenant A Partner"}`, ownerA, "A", 200)
+	apiCall(t, app, "DELETE", "/api/v1/partners/10/profile", `{}`, ownerA, "A", 200)
+	partners := apiCall(t, app, "GET", "/api/v1/partners", "", ownerB, "B", 200)["data"].([]any)
+	if len(partners) != 1 {
+		t.Fatal(partners)
+	}
+	partner := partners[0].(map[string]any)
+	if partner["name"] != "Worker" || partner["userActive"] != true || partner["profitShare"].(map[string]any)["partner"] != float64(20) {
+		t.Fatal(partner)
+	}
+	var wallets int
+	if err := a.pool.QueryRow(t.Context(), `SELECT count(*) FROM "Wallet"`).Scan(&wallets); err != nil || wallets != 0 {
+		t.Fatal("tenant B listing created a wallet in A", wallets, err)
+	}
 }
