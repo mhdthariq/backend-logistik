@@ -248,4 +248,18 @@ func TestShipmentFinanceTenantIsolationPostgres(t *testing.T) {
 		t.Fatal(count, err)
 	}
 	apiCall(t, app, "GET", "/api/v1/shipments/10/payments", "", ownerA, "B", 401)
+	for _, db := range []testDatabase{a, b} {
+		shipmentSQL(t, db, `UPDATE "Customer" SET type='b2c'; INSERT INTO "Payment" (id,"masterId",method,amount,status,"recordedById") VALUES (10,10,'CASH',30,'RECORDED',1)`)
+	}
+	apiCall(t, app, "POST", "/api/v1/payments/10/verify", `{}`, ownerA, "A", 200)
+	rows := apiCall(t, app, "GET", "/api/v1/unpaid", "", ownerB, "B", 200)["data"].([]any)
+	if len(rows) != 1 || rows[0].(map[string]any)["paidAmount"] != float64(0) || rows[0].(map[string]any)["pendingAmount"] != float64(30) {
+		t.Fatal(rows)
+	}
+	apiCall(t, app, "POST", "/api/v1/payments/10/reject", `{"reason":"Wrong transfer"}`, ownerB, "B", 200)
+	rows = apiCall(t, app, "GET", "/api/v1/unpaid", "", ownerA, "A", 200)["data"].([]any)
+	if len(rows) != 1 || rows[0].(map[string]any)["paidAmount"] != float64(30) || rows[0].(map[string]any)["pendingAmount"] != float64(0) {
+		t.Fatal(rows)
+	}
+	apiCall(t, app, "POST", "/api/v1/payments/10/reject", `{}`, ownerA, "B", 401)
 }

@@ -51,6 +51,7 @@ func NewWithTenants(logger *slog.Logger, tenants *tenant.Registry) *fiber.App {
 	b.registerFleetCapacity(app)
 	b.registerTransports(app)
 	b.registerReturnTasks(app)
+	b.registerPayments(app)
 	app.Get("/api/v1/gudang", b.handle("shipment.view", true, false, b.gudang))
 	b.registerPublicTracking(app)
 	return app
@@ -98,6 +99,9 @@ func (b *business) handle(permission string, authenticated, transaction bool, fn
 		if err != nil {
 			var pg *pgconn.PgError
 			if errors.As(err, &pg) && (pg.Code == "40001" || pg.Code == "40P01") {
+				if permission == "payment.verify" && strings.HasSuffix(c.Path(), "/verify") {
+					return problem(409, "Pembayaran berubah bersamaan. Muat ulang lalu coba lagi.")
+				}
 				return problem(409, "Data berubah bersamaan. Silakan coba lagi.")
 			}
 			return err

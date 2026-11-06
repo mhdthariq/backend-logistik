@@ -1,5 +1,34 @@
 # Backend test strategy
 
+## Phase 7 — payment review and unpaid list (2026-11-06)
+
+Three phase 7 handlers are implemented (137/185 overall): payment verification,
+payment rejection and the B2C unpaid list. Both review actions use conditional
+RECORDED transitions inside serializable transactions, locking the shipment first
+to coordinate with Go payment recording. Verification counts only VERIFIED money,
+uses finalPriceAmount with priceAmount fallback, rejects B2B/cancelled/unpriced
+shipments and overpayments, and retains the legacy serialization-conflict message.
+Rejection preserves optional trimmed audit reasons and permits cancelled/B2B
+shipments. Audit remains best-effort after commit, as in the legacy service.
+
+Unpaid uses warehouse scope without the DIRECT-management or marketing ownership
+exceptions of individual shipment endpoints. It preserves the legacy projection,
+discount fallback, payment history and pending/verified totals, including priced
+shipments with zero remaining balance. Go adds ID ordering to break timestamp ties.
+
+Disposable PostgreSQL tests cover permissions, warehouse separation, trusted actor
+attribution, terminal transitions, invalid amounts, rollback on failed payment
+updates, rejection audit reasons, concurrent overpayment prevention, repeated review,
+discount/pending math, history projection and same-ID two-tenant isolation. Legacy
+payment tests pass (35 tests). Mixed Node/Go contention, full response fixtures,
+browser/proxy acceptance and production cutover remain open. Other phase 7 routes
+remain planned; frontend routing and live databases are unchanged.
+
+Validation: focused payment/unpaid/tenant/inventory tests passed with the race
+detector and disposable PostgreSQL; vet, Linux build and golangci-lint passed
+(zero issues). The full regression run passed all other tests; the unpaid test's
+fixture/field-count assertions were corrected and verified in the focused rerun.
+
 ## Phase 6 — transport and return tasks (2026-11-05)
 
 All 33 phase 6 method/path pairs are implemented (134/185 overall). The inventory
