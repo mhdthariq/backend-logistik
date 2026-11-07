@@ -39,6 +39,27 @@ Set process environment variables to override them. `.env.example` documents set
 the executable does not automatically load `.env` files. Use `HOST=0.0.0.0` for a
 container listener. Interrupt/SIGTERM initiates bounded graceful shutdown.
 
+To use a different port, set `PORT` in the service environment. For example,
+on Linux, start the compiled binary on port 9000:
+
+```bash
+PORT=9000 ./novalogistik
+```
+
+For a systemd service, add `Environment=PORT=9000` under `[Service]`, or load
+your environment file with `EnvironmentFile=/absolute/path/to/backend.env` and
+put `PORT=9000` in that file. Restart the service after changing it. When using
+aaPanel, point the site's reverse proxy to `http://127.0.0.1:9000`.
+Valid ports are 1–65535; the default remains 8080.
+
+For a frontend on a different origin, set `CORS_ALLOW_ORIGINS` in the backend
+environment to the comma-separated frontend origins, for example
+`http://localhost:3000,http://127.0.0.1:3000,https://app.example.com`, and restart
+the backend. Include the scheme and port, without paths. Empty disables CORS.
+Allowed origins receive preflight responses for the API methods and the
+Authorization, Content-Type, Accept and X-Corp-Id headers. Bearer authentication
+is unchanged; cookies are not enabled for cross-origin requests.
+
 | Method | Path | Behavior |
 | --- | --- | --- |
 | GET | `/api` | Preserves the original `{"message":"Hello, world!"}` response |

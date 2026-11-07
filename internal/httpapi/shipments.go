@@ -57,13 +57,18 @@ func (b *business) shipments(r *request) (any, error) {
 		mode = ""
 	}
 	marketing := r.actor["partnerType"] == "MARKETING"
-	rows, err := r.many(`SELECT to_jsonb(s)||jsonb_build_object('customer',to_jsonb(c),'payments',
+	args := []any{marketing, idValue(r.actor["partnerId"]), textValue(r.c.Query("status")), textValue(r.c.Query("customerType")), mode, filter, textValue(r.c.Query("search")), searchPattern(r.c.Query("search"))}
+	filterSQL, err := r.warehouseListFilter(&args, func(parameter string) string { return shipmentWarehouseMatch("s", parameter, false) }, true)
+	if err != nil {
+		return nil, err
+	}
+	rows, meta, err := r.listRows(`SELECT to_jsonb(s)||jsonb_build_object('customer',to_jsonb(c),'payments',
 	 COALESCE((SELECT jsonb_agg(jsonb_build_object('amount',p.amount,'status',p.status)) FROM "Payment" p WHERE p."masterId"=s.id),'[]'::jsonb),
 	 'invoiceLines',`+invoiceLinesJSON+`,'_count',jsonb_build_object('details',(SELECT count(*) FROM "DetailShipment" d WHERE d."masterId"=s.id),'pickups',(SELECT count(*) FROM "Pickup" p WHERE p."masterId"=s.id),'deliveries',(SELECT count(*) FROM "Delivery" d WHERE d."masterId"=s.id),'payments',(SELECT count(*) FROM "Payment" p WHERE p."masterId"=s.id)))
-	 FROM "MasterShipment" s JOIN "Customer" c ON c.id=s."customerId"
+	`, ` FROM "MasterShipment" s JOIN "Customer" c ON c.id=s."customerId"
 	 WHERE (NOT $1 OR s."createdByPartnerId"=$2) AND ($3='' OR s.status=$3) AND ($4='' OR c.type=$4) AND ($5='' OR s."fulfillmentMode"=$5)
 	 AND ($6='all' OR ($6='on_invoice')=EXISTS(SELECT 1 FROM "InvoiceLine" l WHERE l."shipmentId"=s.id))
-	 AND ($7='' OR s."masterCode" ILIKE $8 ESCAPE '\' OR s.origin ILIKE $8 ESCAPE '\' OR s.destination ILIKE $8 ESCAPE '\' OR c.name ILIKE $8 ESCAPE '\') ORDER BY s."createdAt" DESC`, marketing, idValue(r.actor["partnerId"]), textValue(r.c.Query("status")), textValue(r.c.Query("customerType")), mode, filter, textValue(r.c.Query("search")), searchPattern(r.c.Query("search")))
+	 AND ($7='' OR s."masterCode" ILIKE $8 ESCAPE '\' OR s.origin ILIKE $8 ESCAPE '\' OR s.destination ILIKE $8 ESCAPE '\' OR c.name ILIKE $8 ESCAPE '\' OR c."companyName" ILIKE $8 ESCAPE '\' OR s."penerimaName" ILIKE $8 ESCAPE '\')`+filterSQL, ` ORDER BY s."createdAt" DESC,s.id DESC`, "s", `s."priceAmount" IS NULL AND s.status<>'CANCELLED'`, args)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +88,7 @@ func (b *business) shipments(r *request) (any, error) {
 		out = append(out, s)
 	}
 	if len(out) == 0 {
-		return out, nil
+		return listResult(out, meta), nil
 	}
 	details, err := r.many(`SELECT to_jsonb(d) FROM "DetailShipment" d WHERE "masterId"=ANY($1::int[])`, visibleIDs)
 	if err != nil {
@@ -116,7 +121,7 @@ func (b *business) shipments(r *request) (any, error) {
 			s["trackingEvents"] = events
 		}
 	}
-	return out, nil
+	return listResult(out, meta), nil
 }
 
 func shipmentWarehouseNames(s map[string]any, warehouses []map[string]any) {

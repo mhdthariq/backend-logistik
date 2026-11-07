@@ -1,10 +1,28 @@
 package httpapi
 
-import "github.com/gofiber/fiber/v3"
+import (
+	"strings"
+
+	"github.com/gofiber/fiber/v3"
+)
 
 func (b *business) options(r *request) (any, error) {
-	if err := expireTariffs(r); err != nil {
-		return nil, err
+	selected := map[string]bool{}
+	if raw := r.c.Query("include"); raw != "" {
+		for _, key := range strings.Split(raw, ",") {
+			switch key {
+			case "employees", "vehicles", "routes", "warehouses", "tariffs", "permissions", "vehicleOwners", "marketingPartners", "customers", "b2bShipments":
+				selected[key] = true
+			default:
+				return nil, problem(422, "include tidak valid.")
+			}
+		}
+	}
+	include := func(key string) bool { return len(selected) == 0 || selected[key] }
+	if include("tariffs") {
+		if err := expireTariffs(r); err != nil {
+			return nil, err
+		}
 	}
 	result := fiber.Map{"company": fiber.Map{"name": r.company}}
 	for _, query := range []struct{ key, sql string }{
@@ -17,6 +35,9 @@ func (b *business) options(r *request) (any, error) {
 		{"vehicleOwners", `SELECT jsonb_build_object('id',p.id,'name',u.name,'username',u.username,'profitShare',jsonb_build_object('company',p."companyPercent",'partner',p."partnerPercent")) FROM "Partner" p JOIN "User" u ON u.id=p."userId" WHERE p.type='VEHICLE_OWNER' AND p."isActive" ORDER BY p."createdAt"`},
 		{"marketingPartners", `SELECT jsonb_build_object('id',p.id,'name',u.name,'username',u.username,'warehouseId',p."warehouseId",'warehouseName',w.name) FROM "Partner" p JOIN "User" u ON u.id=p."userId" LEFT JOIN "Warehouse" w ON w.id=p."warehouseId" WHERE p.type='MARKETING' AND p."isActive" ORDER BY p."createdAt"`},
 	} {
+		if !include(query.key) {
+			continue
+		}
 		rows, err := r.many(query.sql)
 		if err != nil {
 			return nil, err
@@ -25,17 +46,21 @@ func (b *business) options(r *request) (any, error) {
 	}
 	unscoped, warehouse := warehouseScope(r.actor)
 	partner := marketingID(r.actor)
-	customers, err := r.many(`SELECT jsonb_build_object('id',c.id,'code',c.code,'name',c.name,'type',c.type,'companyName',c."companyName",'phone',c.phone,'email',c.email,'address',c.address,'marketingPartnerId',c."marketingPartnerId",'warehouseId',c."warehouseId",'warehouseName',w.name) FROM "Customer" c LEFT JOIN "Warehouse" w ON w.id=c."warehouseId" WHERE c."isActive" AND ($1::int IS NULL OR c."marketingPartnerId"=$1) AND ($2 OR c."warehouseId" IS NULL OR c."warehouseId"=$3::int) ORDER BY c.name`, partner, unscoped || partner != nil, warehouse)
-	if err != nil {
-		return nil, err
+	if include("customers") {
+		customers, err := r.many(`SELECT jsonb_build_object('id',c.id,'code',c.code,'name',c.name,'type',c.type,'companyName',c."companyName",'phone',c.phone,'email',c.email,'address',c.address,'marketingPartnerId',c."marketingPartnerId",'warehouseId',c."warehouseId",'warehouseName',w.name) FROM "Customer" c LEFT JOIN "Warehouse" w ON w.id=c."warehouseId" WHERE c."isActive" AND ($1::int IS NULL OR c."marketingPartnerId"=$1) AND ($2 OR c."warehouseId" IS NULL OR c."warehouseId"=$3::int) ORDER BY c.name`, partner, unscoped || partner != nil, warehouse)
+		if err != nil {
+			return nil, err
+		}
+		result["customers"] = customers
 	}
-	result["customers"] = customers
-	shipments, err := r.many(`SELECT jsonb_build_object('id',s.id,'masterCode',s."masterCode",'priceAmount',s."priceAmount",'finalPriceAmount',s."finalPriceAmount",'customerId',s."customerId",'createdByPartnerId',s."createdByPartnerId",'origin',s.origin,'destination',s.destination,
+	if include("b2bShipments") {
+		shipments, err := r.many(`SELECT jsonb_build_object('id',s.id,'masterCode',s."masterCode",'priceAmount',s."priceAmount",'finalPriceAmount',s."finalPriceAmount",'customerId',s."customerId",'createdByPartnerId',s."createdByPartnerId",'origin',s.origin,'destination',s.destination,
  'invoiceLines',COALESCE((SELECT jsonb_agg(jsonb_build_object('invoice',jsonb_build_object('id',i.id,'invoiceNumber',i."invoiceNumber",'status',i.status))) FROM "InvoiceLine" line JOIN "Invoice" i ON i.id=line."invoiceId" WHERE line."shipmentId"=s.id),'[]'::jsonb))
  FROM "MasterShipment" s JOIN "Customer" c ON c.id=s."customerId" WHERE c.type='b2b' AND s.status<>'CANCELLED' AND EXISTS (SELECT 1 FROM "TransportShipment" ts JOIN "Transport" t ON t.id=ts."transportId" WHERE ts."shipmentId"=s.id AND t.status IN ('ARRIVED','COMPLETED')) AND ($1 OR s."createdByPartnerId"=$2::int) ORDER BY s."createdAt" DESC`, r.actor["partnerType"] != "MARKETING", partner)
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		result["b2bShipments"] = shipments
 	}
-	result["b2bShipments"] = shipments
 	return result, nil
 }

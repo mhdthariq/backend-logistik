@@ -297,7 +297,14 @@ func fallback(a, b any) any {
 }
 func (b *business) transports(r *request) (any, error) {
 	// Fetch list relations together so database round trips do not grow with the fleet.
-	rows, err := r.many(`SELECT to_jsonb(t)||jsonb_build_object(
+	args := []any{r.c.Query("status"), r.c.Query("history") == "true", strings.TrimSpace(r.c.Query("search")), executorOnly(r.actor) || r.c.Query("mine") == "true", idValue(r.actor["employeeId"]), r.c.Query("page") == "" && r.c.Query("pageSize") == ""}
+	filterSQL, err := r.warehouseListFilter(&args, func(parameter string) string {
+		return `(EXISTS(SELECT 1 FROM "Warehouse" scope_w WHERE scope_w.id=` + parameter + ` AND scope_w."isActive" AND trim(scope_w.city)<>'' AND (lower(trim(scope_w.city))=lower(trim(rt.origin)) OR lower(trim(scope_w.city))=lower(trim(rt.destination)))) OR EXISTS(SELECT 1 FROM "TransportShipment" scope_ts JOIN "MasterShipment" scope_s ON scope_s.id=scope_ts."shipmentId" WHERE scope_ts."transportId"=t.id AND ` + shipmentWarehouseMatch("scope_s", parameter, false) + `))`
+	}, false)
+	if err != nil {
+		return nil, err
+	}
+	rows, meta, err := r.listRows(`SELECT to_jsonb(t)||jsonb_build_object(
  'route',to_jsonb(rt)||jsonb_build_object('checkpoints',COALESCE((SELECT jsonb_agg(to_jsonb(cp) ORDER BY cp.sequence) FROM "Checkpoint" cp WHERE cp."routeId"=rt.id),'[]'::jsonb)),
  'vehicle',jsonb_build_object('vehicleNumber',v."vehicleNumber",'name',v.name,'ownerId',v."ownerId",'ownerName',owner.name,'maxWeightKg',v."maxWeightKg",'maxVolumeM3',v."maxVolumeM3",'maxKoli',v."maxKoli"),
  'driverName',driver.name,'kenekName',kenek.name,
@@ -307,15 +314,15 @@ func (b *business) transports(r *request) (any, error) {
  FROM "TransportShipment" ts JOIN "MasterShipment" s ON s.id=ts."shipmentId" JOIN "Customer" c ON c.id=s."customerId"
  CROSS JOIN LATERAL (SELECT count(*) packages,COALESCE(sum(ds."actualWeightKg"),0) weight,COALESCE(sum(COALESCE(ds."lengthCm",0)*COALESCE(ds."widthCm",0)*COALESCE(ds."heightCm",0)/1000000.0),0) volume FROM "DetailShipment" ds WHERE ds."masterId"=s.id) a
  WHERE ts."transportId"=t.id),'[]'::jsonb))
- FROM "Transport" t LEFT JOIN "Route" rt ON rt.id=t."routeId" JOIN "Vehicle" v ON v.id=t."vehicleId"
+`, ` FROM "Transport" t LEFT JOIN "Route" rt ON rt.id=t."routeId" JOIN "Vehicle" v ON v.id=t."vehicleId"
  LEFT JOIN "Partner" p ON p.id=v."ownerId" LEFT JOIN "User" owner ON owner.id=p."userId"
  LEFT JOIN "Employee" driver ON driver.id=t."driverId" AND driver."isActive"
  LEFT JOIN "Employee" kenek ON kenek.id=t."kenekId" AND kenek."isActive"
  LEFT JOIN "TransportSettlement" settlement ON settlement."transportId"=t.id
- WHERE ($1='' OR t.status=$1 OR $2) AND (NOT $2 OR t.status IN ('ARRIVED','COMPLETED','CANCELLED'))
- AND ($3='' OR strpos(lower(t."transportCode"),lower($3))>0 OR strpos(lower(COALESCE(rt.name,'')),lower($3))>0 OR strpos(lower(v."vehicleNumber"),lower($3))>0)
+ WHERE ($1='' OR t.status=$1 OR ($2 AND $6)) AND (NOT $2 OR t.status IN ('ARRIVED','COMPLETED','CANCELLED'))
+ AND ($3='' OR strpos(lower(t."transportCode"),lower($3))>0 OR strpos(lower(COALESCE(rt.name,'')),lower($3))>0 OR strpos(lower(v."vehicleNumber"),lower($3))>0 OR strpos(lower(COALESCE(t.origin,rt.origin,'')),lower($3))>0 OR strpos(lower(COALESCE(t.destination,rt.destination,'')),lower($3))>0 OR strpos(lower(COALESCE(driver.name,'')),lower($3))>0 OR strpos(lower(COALESCE(kenek.name,'')),lower($3))>0)
  AND (NOT $4 OR ($5>0 AND (t."driverId"=$5 OR t."kenekId"=$5)))
- ORDER BY t."createdAt" DESC,t.id DESC`, r.c.Query("status"), r.c.Query("history") == "true", strings.TrimSpace(r.c.Query("search")), executorOnly(r.actor) || r.c.Query("mine") == "true", idValue(r.actor["employeeId"]))
+`+filterSQL, ` ORDER BY t."createdAt" DESC,t.id DESC`, "t", ``, args)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +370,7 @@ func (b *business) transports(r *request) (any, error) {
 		item["capacity"] = vehicleCapacity(v, load, warning)
 		out = append(out, item)
 	}
-	return out, nil
+	return listResult(out, meta), nil
 }
 
 func (r *request) transportPlan(existing map[string]any) (map[string]any, error) {

@@ -1,0 +1,97 @@
+Disposable PostgreSQL fixture: 1000 shipments, 5000 packages. No production data.
+=== RUN   TestPaginationQueryPlanPostgres
+    pagination_integration_test.go:146: unbounded baseline (340.112142ms):
+        Sort  (cost=119623.83..119626.33 rows=1000 width=44) (actual time=328.452..328.494 rows=1000.00 loops=1)
+          Sort Key: s."createdAt" DESC, s.id DESC
+          Sort Method: quicksort  Memory: 2337kB
+          Buffers: shared hit=57019
+          ->  Seq Scan on "MasterShipment" s  (cost=0.00..119574.00 rows=1000 width=44) (actual time=0.361..326.195 rows=1000.00 loops=1)
+                Buffers: shared hit=57019
+                SubPlan 1
+                  ->  Aggregate  (cost=119.53..119.54 rows=1 width=32) (actual time=0.295..0.295 rows=1.00 loops=1000)
+                        Buffers: shared hit=57000
+                        ->  Seq Scan on "DetailShipment" d  (cost=0.00..119.50 rows=5 width=107) (actual time=0.028..0.261 rows=5.00 loops=1000)
+                              Filter: ("masterId" = s.id)
+                              Rows Removed by Filter: 4995
+                              Buffers: shared hit=57000
+        Planning:
+          Buffers: shared hit=198
+        Planning Time: 0.257 ms
+        Execution Time: 328.706 ms
+    pagination_integration_test.go:146: page of 25 (9.505178ms):
+        Sort  (cost=3079.20..3079.27 rows=25 width=44) (actual time=8.353..8.357 rows=25.00 loops=1)
+          Sort Key: s."createdAt" DESC, s.id DESC
+          Sort Method: quicksort  Memory: 82kB
+          Buffers: shared hit=1463
+          CTE page_ids
+            ->  Limit  (cost=57.22..57.28 rows=25 width=12) (actual time=0.346..0.350 rows=25.00 loops=1)
+                  Buffers: shared hit=19
+                  ->  Sort  (cost=57.22..59.72 rows=1000 width=12) (actual time=0.345..0.347 rows=25.00 loops=1)
+                        Sort Key: "MasterShipment"."createdAt" DESC, "MasterShipment".id DESC
+                        Sort Method: top-N heapsort  Memory: 26kB
+                        Buffers: shared hit=19
+                        ->  Seq Scan on "MasterShipment"  (cost=0.00..29.00 rows=1000 width=12) (actual time=0.002..0.137 rows=1000.00 loops=1)
+                              Buffers: shared hit=19
+          ->  Hash Semi Join  (cost=0.81..3021.34 rows=25 width=44) (actual time=1.334..8.308 rows=25.00 loops=1)
+                Hash Cond: (s.id = page_ids.id)
+                Buffers: shared hit=1463
+                ->  Seq Scan on "MasterShipment" s  (cost=0.00..29.00 rows=1000 width=539) (actual time=0.013..0.529 rows=1000.00 loops=1)
+                      Buffers: shared hit=19
+                ->  Hash  (cost=0.50..0.50 rows=25 width=4) (actual time=0.365..0.366 rows=25.00 loops=1)
+                      Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                      Buffers: shared hit=19
+                      ->  CTE Scan on page_ids  (cost=0.00..0.50 rows=25 width=4) (actual time=0.348..0.354 rows=25.00 loops=1)
+                            Storage: Memory  Maximum Storage: 17kB
+                            Buffers: shared hit=19
+                SubPlan 2
+                  ->  Aggregate  (cost=119.53..119.54 rows=1 width=32) (actual time=0.267..0.267 rows=1.00 loops=25)
+                        Buffers: shared hit=1425
+                        ->  Seq Scan on "DetailShipment" d  (cost=0.00..119.50 rows=5 width=107) (actual time=0.047..0.235 rows=5.00 loops=25)
+                              Filter: ("masterId" = s.id)
+                              Rows Removed by Filter: 4995
+                              Buffers: shared hit=1425
+        Planning:
+          Buffers: shared hit=42
+        Planning Time: 0.368 ms
+        Execution Time: 8.393 ms
+    pagination_integration_test.go:146: page of 25 with package index (3.834823ms):
+        Sort  (cost=590.23..590.29 rows=25 width=44) (actual time=2.633..2.637 rows=25.00 loops=1)
+          Sort Key: s."createdAt" DESC, s.id DESC
+          Sort Method: quicksort  Memory: 82kB
+          Buffers: shared hit=213
+          CTE page_ids
+            ->  Limit  (cost=57.22..57.28 rows=25 width=12) (actual time=0.428..0.431 rows=25.00 loops=1)
+                  Buffers: shared hit=19
+                  ->  Sort  (cost=57.22..59.72 rows=1000 width=12) (actual time=0.427..0.428 rows=25.00 loops=1)
+                        Sort Key: "MasterShipment"."createdAt" DESC, "MasterShipment".id DESC
+                        Sort Method: top-N heapsort  Memory: 26kB
+                        Buffers: shared hit=19
+                        ->  Seq Scan on "MasterShipment"  (cost=0.00..29.00 rows=1000 width=12) (actual time=0.002..0.140 rows=1000.00 loops=1)
+                              Buffers: shared hit=19
+          ->  Hash Semi Join  (cost=0.81..532.37 rows=25 width=44) (actual time=1.118..2.607 rows=25.00 loops=1)
+                Hash Cond: (s.id = page_ids.id)
+                Buffers: shared hit=213
+                ->  Seq Scan on "MasterShipment" s  (cost=0.00..29.00 rows=1000 width=539) (actual time=0.011..0.532 rows=1000.00 loops=1)
+                      Buffers: shared hit=19
+                ->  Hash  (cost=0.50..0.50 rows=25 width=4) (actual time=0.442..0.442 rows=25.00 loops=1)
+                      Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                      Buffers: shared hit=19
+                      ->  CTE Scan on page_ids  (cost=0.00..0.50 rows=25 width=4) (actual time=0.430..0.436 rows=25.00 loops=1)
+                            Storage: Memory  Maximum Storage: 17kB
+                            Buffers: shared hit=19
+                SubPlan 2
+                  ->  Aggregate  (cost=19.97..19.98 rows=1 width=32) (actual time=0.038..0.038 rows=1.00 loops=25)
+                        Buffers: shared hit=175
+                        ->  Bitmap Heap Scan on "DetailShipment" d  (cost=4.32..19.94 rows=5 width=107) (actual time=0.004..0.007 rows=5.00 loops=25)
+                              Recheck Cond: ("masterId" = s.id)
+                              Heap Blocks: exact=125
+                              Buffers: shared hit=175
+                              ->  Bitmap Index Scan on "DetailShipment_masterId_idx"  (cost=0.00..4.32 rows=5 width=0) (actual time=0.002..0.002 rows=5.00 loops=25)
+                                    Index Cond: ("masterId" = s.id)
+                                    Index Searches: 25
+                                    Buffers: shared hit=50
+        Planning:
+          Buffers: shared hit=53 read=1
+        Planning Time: 0.391 ms
+        Execution Time: 2.675 ms
+--- PASS: TestPaginationQueryPlanPostgres (1.39s)

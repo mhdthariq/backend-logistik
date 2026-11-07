@@ -2,9 +2,12 @@ package httpapi
 
 import (
 	"log/slog"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 )
 
@@ -23,6 +26,13 @@ func New(logger *slog.Logger) *fiber.App {
 		BodyLimit:    16 * 1024 * 1024,
 	})
 	app.Use(recover.New())
+	if origins := strings.TrimSpace(os.Getenv("CORS_ALLOW_ORIGINS")); origins != "" {
+		app.Use(cors.New(cors.Config{
+			AllowOrigins: strings.Split(origins, ","),
+			AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+			AllowHeaders: []string{"Authorization", "Content-Type", "Accept", "X-Corp-Id"},
+		}))
+	}
 	app.Get("/api", func(c fiber.Ctx) error {
 		// This legacy route is intentionally not wrapped in the v1 envelope.
 		return c.JSON(fiber.Map{"message": "Hello, world!"})

@@ -25,10 +25,13 @@ func (b *business) registerInvoices(app *fiber.App) {
 	app.Delete("/api/v1/invoices/:id/settlements/:settlementId", b.handle("invoice.settlement.delete", true, true, b.mutateInvoiceSettlement))
 }
 
-const invoiceSelect = `SELECT to_jsonb(i)||jsonb_build_object('customer',to_jsonb(c),
+const invoiceProjection = `SELECT to_jsonb(i)||jsonb_build_object('customer',to_jsonb(c),
  'lines',COALESCE((SELECT jsonb_agg(to_jsonb(l)||jsonb_build_object('shipment',CASE WHEN s.id IS NULL THEN NULL ELSE jsonb_build_object('id',s.id,'masterCode',s."masterCode") END) ORDER BY l.id) FROM "InvoiceLine" l LEFT JOIN "MasterShipment" s ON s.id=l."shipmentId" WHERE l."invoiceId"=i.id),'[]'::jsonb),
  'settlements',COALESCE((SELECT jsonb_agg(to_jsonb(s) ORDER BY s."settledAt" DESC,s.id DESC) FROM "InvoiceSettlement" s WHERE s."invoiceId"=i.id),'[]'::jsonb),
- 'commission',(SELECT to_jsonb(m)||jsonb_build_object('partner',` + partnerJoin + `) FROM "MarketingCommission" m JOIN "Partner" p ON p.id=m."partnerId" JOIN "User" u ON u.id=p."userId" WHERE m."invoiceId"=i.id)) FROM "Invoice" i JOIN "Customer" c ON c.id=i."customerId" `
+ 'commission',(SELECT to_jsonb(m)||jsonb_build_object('partner',` + partnerJoin + `) FROM "MarketingCommission" m JOIN "Partner" p ON p.id=m."partnerId" JOIN "User" u ON u.id=p."userId" WHERE m."invoiceId"=i.id))`
+
+const invoiceFrom = ` FROM "Invoice" i JOIN "Customer" c ON c.id=i."customerId" `
+const invoiceSelect = invoiceProjection + invoiceFrom
 
 func invoiceTotals(i map[string]any) {
 	total := -number(i["discount"]) + number(i["rounding"])
@@ -66,7 +69,7 @@ func (b *business) invoiceDetail(r *request) (any, error) {
 	return r.loadInvoice(idValue(r.c.Params("id")), false)
 }
 func (b *business) invoices(r *request) (any, error) {
-	rows, err := r.many(invoiceSelect+`WHERE ($1='' OR i.status=$1) AND ($2='' OR strpos(lower(i."invoiceNumber"),lower($2))>0 OR strpos(lower(c.name),lower($2))>0 OR strpos(lower(c."companyName"),lower($2))>0) ORDER BY i."createdAt" DESC,i.id DESC`, r.c.Query("status"), r.c.Query("search"))
+	rows, meta, err := r.listRows(invoiceProjection, invoiceFrom+`WHERE ($1='' OR i.status=$1) AND ($2='' OR strpos(lower(i."invoiceNumber"),lower($2))>0 OR strpos(lower(c.name),lower($2))>0 OR strpos(lower(c."companyName"),lower($2))>0)`, ` ORDER BY i."createdAt" DESC,i.id DESC`, "i", "", []any{r.c.Query("status"), r.c.Query("search")})
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +95,7 @@ func (b *business) invoices(r *request) (any, error) {
 		}
 		out = append(out, row)
 	}
-	return out, nil
+	return listResult(out, meta), nil
 }
 func (r *request) invoiceBank(value any) (map[string]any, error) {
 	data := map[string]any{"bankAccountId": nil, "paymentBankName": nil, "paymentAccountNumber": nil, "paymentAccountName": nil}

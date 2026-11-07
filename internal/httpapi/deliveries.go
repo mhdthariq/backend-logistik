@@ -49,9 +49,6 @@ func (r *request) deliveryTask(lock, assignment bool) (map[string]any, map[strin
 
 func (b *business) deliveries(r *request) (any, error) {
 	mine := r.c.Query("mine") == "true" || !hasPermission(r.actor, "delivery.assign_kurir")
-	if mine && idValue(r.actor["employeeId"]) == 0 {
-		return []map[string]any{}, nil
-	}
 	mode := strings.TrimSpace(r.c.Query("fulfillmentMode"))
 	if !truthy(r.actor["isOwner"]) && (hasRole(r.actor, "driver") || hasRole(r.actor, "kenek")) {
 		mode = "DIRECT"
@@ -59,18 +56,23 @@ func (b *business) deliveries(r *request) (any, error) {
 	if mode != "DIRECT" && mode != "STANDARD" {
 		mode = ""
 	}
-	rows, err := r.many(`SELECT to_jsonb(d)||jsonb_build_object('master',to_jsonb(s),'customer',to_jsonb(c),'originWarehouseName',w.name,
+	args := []any{strings.TrimSpace(r.c.Query("status")), mine, r.actor["employeeId"], mode, strings.TrimSpace(r.c.Query("search"))}
+	filterSQL, err := r.warehouseListFilter(&args, func(parameter string) string { return shipmentWarehouseMatch("s", parameter, false) }, false)
+	if err != nil {
+		return nil, err
+	}
+	rows, meta, err := r.listRows(`SELECT to_jsonb(d)||jsonb_build_object('master',to_jsonb(s),'customer',to_jsonb(c),'originWarehouseName',w.name,
 	 'details',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'detailCode',p."detailCode",'description',p.description,'scanned',EXISTS(SELECT 1 FROM "HandoverScan" h WHERE h."deliveryId"=d.id AND h."detailId"=p.id AND h.result IN ('ok','duplicate'))) ORDER BY p.id) FROM "DetailShipment" p WHERE p."masterId"=s.id),'[]'::jsonb),
 	 'scannedCount',(SELECT count(DISTINCT h."detailId") FROM "HandoverScan" h WHERE h."deliveryId"=d.id AND h.result IN ('ok','duplicate')),
 	 'pickedUpFromCheckpoint1',s."fulfillmentMode"='DIRECT' AND EXISTS (
 	 SELECT 1 FROM "TransportShipment" ts JOIN "Transport" t ON t.id=ts."transportId"
 	 JOIN "CheckpointRecord" cr ON cr."transportId"=t.id
 	 WHERE ts."shipmentId"=s.id AND cr."checkpointId"=(SELECT cp.id FROM "Checkpoint" cp WHERE cp."routeId"=t."routeId" ORDER BY cp.sequence LIMIT 1)))
-	 FROM "Delivery" d JOIN "MasterShipment" s ON s.id=d."masterId" JOIN "Customer" c ON c.id=s."customerId" LEFT JOIN "Warehouse" w ON w.id=s."originWarehouseId"
+	`, ` FROM "Delivery" d JOIN "MasterShipment" s ON s.id=d."masterId" JOIN "Customer" c ON c.id=s."customerId" LEFT JOIN "Warehouse" w ON w.id=s."originWarehouseId"
 	 WHERE ($1='' OR d.status=$1) AND (NOT $2 OR d."kurirId"=$3)
 	 AND ($4='' OR s."fulfillmentMode"=$4)
-	 AND ($5='' OR strpos(lower(d."deliveryCode"),lower($5))>0 OR strpos(lower(s."masterCode"),lower($5))>0 OR strpos(lower(c.name),lower($5))>0)
-	 ORDER BY d."createdAt" DESC,d.id DESC`, strings.TrimSpace(r.c.Query("status")), mine, r.actor["employeeId"], mode, strings.TrimSpace(r.c.Query("search")))
+	 AND ($5='' OR strpos(lower(d."deliveryCode"),lower($5))>0 OR strpos(lower(s."masterCode"),lower($5))>0 OR strpos(lower(COALESCE(NULLIF(c."companyName",''),c.name)),lower($5))>0)
+	`+filterSQL, ` ORDER BY d."createdAt" DESC,d.id DESC`, "d", ``, args)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +114,7 @@ func (b *business) deliveries(r *request) (any, error) {
 		row["detailsCount"], row["allScanned"] = len(details), all
 		out = append(out, proofVisible(r.actor, row))
 	}
-	return out, nil
+	return listResult(out, meta), nil
 }
 
 func (b *business) delivery(r *request) (any, error) {
